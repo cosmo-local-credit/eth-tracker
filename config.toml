@@ -1,0 +1,65 @@
+[api]
+address = ":5001"
+
+[core]
+cache_type = "internal"
+db_type = "bolt"
+pool_size = 0
+batch_size = 5000
+max_block_retries = 5
+reorg_depth_limit = 256
+
+[redis]
+dsn = "127.0.0.1:6379"
+
+[chain]
+ws_endpoint = "ws://localhost:8546"
+rpc_endpoint = "http://localhost:8545"
+chainid = 1337
+start_block = 0
+
+[bootstrap]
+ge_registry = ["0x0f8E97ef2d6A42CF62549D4924FCBdcE83A1C6A5"]
+watchlist = [""]
+blacklist = [""]
+custodial_registration_address = ""
+
+# --- JetStream Clustering ---
+# For a 3-tracker redundancy deployment, point all tracker instances at the
+# same NATS JetStream cluster. The cluster handles deduplication at the
+# stream level via MsgID (TxHash:LogIndex). All three trackers publish the
+# same events; NATS silently drops duplicates within the dedup window.
+#
+# Minimum cluster setup (3 nodes for quorum + Replicas:3):
+#   nats-server -js -cluster nats://0.0.0.0:6222 \
+#               -routes nats://node-b:6222,nats://node-c:6222 \
+#               -store_dir /var/lib/nats/jetstream
+#
+# Config for a 3-node cluster:
+#   endpoint     = "nats://node-a:4222,nats://node-b:4222,nats://node-c:4222"
+#   stream_replicas = 3   # must equal the number of cluster nodes
+#
+# For single-instance / dev (no clustering):
+#   endpoint     = "nats://127.0.0.1:4222"
+#   stream_replicas = 1
+[jetstream]
+enable = true
+endpoint = "nats://127.0.0.1:4222"
+persist_duration_hrs = 48
+dedup_window_hrs     = 48  # must equal persist_duration_hrs so every retained event is
+                           # also within the dedup window. A shorter dedup window creates
+                           # a gap where events are still stored but no longer deduplicated
+                           # — re-published events from a recovered tracker would reach
+                           # consumers as duplicates.
+stream_replicas = 1
+
+[publisher]
+max_retries = 5
+# circuit_breaker_threshold: consecutive Send() failures before the breaker
+# opens and all publishes fail fast with ErrCircuitOpen. Blocks go to
+# "failed" state and are retried by the backfiller once NATS recovers.
+circuit_breaker_threshold = 5
+# circuit_breaker_timeout_s: seconds the breaker stays open before a
+# single probe publish is attempted (half-open state). If the probe
+# succeeds the breaker closes; if it fails the timer resets.
+circuit_breaker_timeout_s = 30
