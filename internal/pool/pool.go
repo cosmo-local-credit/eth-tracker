@@ -82,6 +82,13 @@ func (p *Pool) runWorker(ctx context.Context, id int) {
 					break
 				}
 
+				// Cascade: wake another idle worker so the pool fans out to
+				// all available workers instead of one worker draining solo.
+				select {
+				case p.notify <- struct{}{}:
+				default:
+				}
+
 				err = p.processBlock(ctx, id, blockNum)
 
 				if err != nil {
@@ -174,13 +181,23 @@ func (p *Pool) Notify() {
 // WaitUntilIdle blocks until both the pending queue and in-flight counter are
 // zero, indicating the pool has fully drained all enqueued work.
 func (p *Pool) WaitUntilIdle(ctx context.Context) error {
-	ticker := time.NewTicker(500 * time.Millisecond)
-	defer ticker.Stop()
+	pollTicker := time.NewTicker(500 * time.Millisecond)
+	defer pollTicker.Stop()
+	progressTicker := time.NewTicker(10 * time.Second)
+	defer progressTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-ticker.C:
+		case <-progressTicker.C:
+			pending, err := p.db.PendingCount()
+			if err != nil {
+				continue
+			}
+			inFlight := atomic.LoadInt64(&p.inFlight)
+			p.logg.Info("draining block queue", "pending", pending, "in_flight", inFlight)
+		case <-pollTicker.C:
 			pending, err := p.db.PendingCount()
 			if err != nil {
 				p.logg.Error("pending count check failed", "error", err)

@@ -24,6 +24,12 @@ type (
 		GetNextMissingBatch(fromBlock, toBlock uint64, batchSize int) ([]uint64, error)
 		EnqueueBatch(blocks []uint64) error
 
+		// AdvanceLowerBound scans forward from the stored lower bound through
+		// all contiguously completed blocks and updates the lower bound to the
+		// first block that has not yet been completed. Returns the new lower
+		// bound (unchanged if no blocks were advanced).
+		AdvanceLowerBound() (uint64, error)
+
 		GetDLQEntries() ([]DLQEntry, error)
 
 		PendingCount() (int, error)

@@ -456,6 +456,60 @@ func (d *boltDB) GetDLQEntries() ([]DLQEntry, error) {
 	return entries, err
 }
 
+// AdvanceLowerBound scans forward from the current lower bound through all
+// contiguously completed blocks and atomically updates the lower bound to the
+// first block that is not yet completed. Returns the new lower bound.
+// If no blocks have been completed since the last call, the lower bound is
+// unchanged and the original value is returned.
+func (d *boltDB) AdvanceLowerBound() (uint64, error) {
+	var newLower uint64
+	err := d.db.Update(func(tx *bolt.Tx) error {
+		meta, err := mustBucket(tx, metaBucketB, metaBucket)
+		if err != nil {
+			return err
+		}
+		queue, err := mustBucket(tx, blockQueueBucketB, blockQueueBucket)
+		if err != nil {
+			return err
+		}
+
+		data := meta.Get(lowerBoundKeyB)
+		if data == nil {
+			return nil
+		}
+		lower := unmarshalUint64(data)
+
+		// Walk forward from lower through every contiguously completed block.
+		cursor := queue.Cursor()
+		fromKey := u64Key(lower)
+		k, v := cursor.Seek(fromKey[:])
+
+		frontier := lower
+		for k != nil {
+			blockNum := unmarshalUint64(k)
+			if blockNum != frontier {
+				// Gap: block `frontier` is not in the queue at all — still pending.
+				break
+			}
+			if len(v) < 1 || v[0] != StateCompleted {
+				// Block exists but is not yet completed.
+				break
+			}
+			frontier++
+			k, v = cursor.Next()
+		}
+
+		newLower = frontier
+		if frontier == lower {
+			// Nothing advanced.
+			return nil
+		}
+		key := u64Key(frontier)
+		return meta.Put(lowerBoundKeyB, key[:])
+	})
+	return newLower, err
+}
+
 func (d *boltDB) Cleanup() error {
 	lowerBound, err := d.GetLowerBound()
 	if err != nil {

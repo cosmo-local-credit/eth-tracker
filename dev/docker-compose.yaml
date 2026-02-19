@@ -5,7 +5,4 @@ services:
     command: -js -sd /tmp/nats/data -m 8222
     ports:
       - 0.0.0.0:4222:4222
-      - 0.0.0.0:8222:8222      
-volumes:
-  tracker-redis:
-    driver: local
+      - 0.0.0.0:8222:8222
