@@ -16,7 +16,6 @@ const faucetGiveEventName = "FAUCET_GIVE"
 var (
 	faucetGiveEvent = w3.MustNewEvent("Give(address indexed _recipient, address indexed _token, uint256 _amount)")
 	faucetGiveToSig = w3.MustNewFunc("giveTo(address)", "uint256")
-	faucetGimmeSig  = w3.MustNewFunc("gimme()", "uint256")
 )
 
 func HandleFaucetGiveLog() router.LogHandlerFunc {
@@ -78,7 +77,7 @@ func HandleFaucetGiveInputData() router.InputDataHandlerFunc {
 			return c(ctx, faucetGiveEvent)
 		case "de82efb4":
 			faucetGiveEvent.Payload = map[string]any{
-				"recipient": ethutils.ZeroAddress,
+				"recipient": idp.From,
 				"token":     ethutils.ZeroAddress,
 				"amount":    "0",
 			}

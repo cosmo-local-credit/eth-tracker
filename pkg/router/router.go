@@ -94,6 +94,9 @@ func (r *Router) RegisterContractCreationHandler(handlerFunc ContractCreationHan
 }
 
 func (r *Router) ProcessLog(ctx context.Context, payload LogPayload) error {
+	if len(payload.Log.Topics) == 0 {
+		return nil
+	}
 	handler, ok := r.logHandlers[payload.Log.Topics[0]]
 	if ok {
 		return handler.HandlerFunc(ctx, payload, r.callbackFn)
@@ -122,5 +125,8 @@ func (r *Router) ProcessInputData(ctx context.Context, payload InputDataPayload)
 }
 
 func (r *Router) ProcessContractCreation(ctx context.Context, payload ContractCreationPayload) error {
+	if r.contractCreationHandler == nil {
+		return nil
+	}
 	return r.contractCreationHandler(ctx, payload, r.callbackFn)
 }

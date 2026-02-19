@@ -24,8 +24,10 @@ func HandleContractCreation(hc *HandlerContainer) router.ContractCreationHandler
 			},
 		}
 
-		if err := hc.cache.Add(ctx, ccp.ContractAddress); err != nil {
-			return err
+		if ccp.Success {
+			if err := hc.cache.Add(ctx, ccp.ContractAddress); err != nil {
+				return err
+			}
 		}
 
 		return c(ctx, contractCreationEvent)

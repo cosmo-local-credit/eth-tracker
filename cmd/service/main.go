@@ -168,6 +168,8 @@ func main() {
 		DB:        dbInstance,
 		Logg:      lo,
 		Pool:      workerPool,
+		Chain:     chainClient,
+		Processor: blockProcessor,
 	})
 	lo.Debug("bootstrapped backfiller")
 

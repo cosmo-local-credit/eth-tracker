@@ -10,7 +10,10 @@ import (
 	"github.com/lmittmann/w3"
 )
 
-const transferEventName = "TOKEN_TRANSFER"
+const (
+	transferEventName     = "TOKEN_TRANSFER"
+	transferFromEventName = "TOKEN_TRANSFER_FROM"
+)
 
 var (
 	tokenTransferEvent     = w3.MustNewEvent("Transfer(address indexed _from, address indexed _to, uint256 _value)")
@@ -115,10 +118,12 @@ func HandleTokenTransferInputData(hc *HandlerContainer) router.InputDataHandlerF
 				return nil
 			}
 
+			tokenTransferEvent.TxType = transferFromEventName
 			tokenTransferEvent.Payload = map[string]any{
-				"from":  from.Hex(),
-				"to":    to.Hex(),
-				"value": value.String(),
+				"from":    from.Hex(),
+				"to":      to.Hex(),
+				"value":   value.String(),
+				"spender": idp.From,
 			}
 
 			return c(ctx, tokenTransferEvent)
@@ -156,7 +161,7 @@ func HandleTokenTransferFromLog(hc *HandlerContainer) router.LogHandlerFunc {
 			Success:         true,
 			Timestamp:       lp.Timestamp,
 			TxHash:          lp.Log.TxHash.Hex(),
-			TxType:          transferEventName,
+			TxType:          transferFromEventName,
 			Payload: map[string]any{
 				"from":    from.Hex(),
 				"to":      to.Hex(),

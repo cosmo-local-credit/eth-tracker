@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/cosmo-local-credit/eth-tracker/db"
 	"github.com/cosmo-local-credit/eth-tracker/internal/cache"
@@ -23,11 +24,12 @@ type (
 	}
 
 	Processor struct {
-		cache  cache.Cache
-		chain  chain.Chain
-		db     db.DB
-		router *router.Router
-		logg   *slog.Logger
+		cache     cache.Cache
+		chain     chain.Chain
+		db        db.DB
+		router    *router.Router
+		logg      *slog.Logger
+		preloaded sync.Map // map[uint64]*types.Block, populated by PreloadBlock
 	}
 )
 
@@ -41,15 +43,36 @@ func NewProcessor(o ProcessorOpts) *Processor {
 	}
 }
 
+// PreloadBlock stores a pre-fetched block so ProcessBlock can skip the
+// GetBlock RPC call. The backfiller calls this for batches of up to 100
+// blocks at a time before enqueueing them to the worker pool.
+func (p *Processor) PreloadBlock(block *types.Block) {
+	p.preloaded.Store(block.NumberU64(), block)
+}
+
 func (p *Processor) ProcessBlock(ctx context.Context, blockNumber uint64) error {
-	block, err := p.chain.GetBlock(ctx, blockNumber)
-	if err != nil {
-		return fmt.Errorf("block %d error: %w", blockNumber, err)
+	var block *types.Block
+
+	if v, ok := p.preloaded.LoadAndDelete(blockNumber); ok {
+		block = v.(*types.Block)
+	} else {
+		var err error
+		block, err = p.chain.GetBlock(ctx, blockNumber)
+		if err != nil {
+			return fmt.Errorf("block %d error: %w", blockNumber, err)
+		}
 	}
 
 	receipts, err := p.chain.GetReceipts(ctx, block.Number())
 	if err != nil {
 		return fmt.Errorf("receipts fetch error: block %d: %w", blockNumber, err)
+	}
+
+	// Index every transaction in the block by hash so we can look up sender
+	// and calldata without extra per-transaction RPC calls.
+	txByHash := make(map[common.Hash]*types.Transaction, len(block.Transactions()))
+	for _, tx := range block.Transactions() {
+		txByHash[tx.Hash()] = tx
 	}
 
 	for _, receipt := range receipts {
@@ -73,9 +96,9 @@ func (p *Processor) ProcessBlock(ctx context.Context, blockNumber uint64) error 
 			}
 
 			if receipt.ContractAddress != (common.Address{}) {
-				tx, err := p.chain.GetTransaction(ctx, receipt.TxHash)
-				if err != nil {
-					return fmt.Errorf("get transaction error: tx %s: %w", receipt.TxHash.Hex(), err)
+				tx := txByHash[receipt.TxHash]
+				if tx == nil {
+					return fmt.Errorf("transaction %s not found in block %d", receipt.TxHash.Hex(), blockNumber)
 				}
 
 				from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
@@ -106,10 +129,11 @@ func (p *Processor) ProcessBlock(ctx context.Context, blockNumber uint64) error 
 		}
 
 		if receipt.Status == 0 {
-			tx, err := p.chain.GetTransaction(ctx, receipt.TxHash)
-			if err != nil {
-				return fmt.Errorf("get transaction error: tx %s: %w", receipt.TxHash.Hex(), err)
+			tx := txByHash[receipt.TxHash]
+			if tx == nil {
+				return fmt.Errorf("transaction %s not found in block %d", receipt.TxHash.Hex(), blockNumber)
 			}
+
 			if tx.To() == nil {
 				from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
 				if err != nil {

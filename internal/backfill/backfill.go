@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/cosmo-local-credit/eth-tracker/db"
+	"github.com/cosmo-local-credit/eth-tracker/internal/chain"
 	"github.com/cosmo-local-credit/eth-tracker/internal/pool"
+	"github.com/cosmo-local-credit/eth-tracker/internal/processor"
 )
 
 type (
@@ -16,6 +18,8 @@ type (
 		DB        db.DB
 		Logg      *slog.Logger
 		Pool      *pool.Pool
+		Chain     chain.Chain
+		Processor *processor.Processor
 	}
 
 	Backfill struct {
@@ -23,31 +27,44 @@ type (
 		db        db.DB
 		logg      *slog.Logger
 		pool      *pool.Pool
+		chain     chain.Chain
+		processor *processor.Processor
 		stopCh    chan struct{}
 		ticker    *time.Ticker
 		scanPos   uint64
+		runCtx    context.Context
+		runCancel context.CancelFunc
 	}
 )
 
 const (
 	idleCheckInterval = 60 * time.Second
 	busyCheckInterval = 250 * time.Millisecond
+	// maxBlockFetchBatch is the maximum number of blocks fetched in a single
+	// GetBlocks RPC call. Keeping this at 100 avoids overwhelming the node.
+	maxBlockFetchBatch = 100
 )
 
 func New(o BackfillOpts) *Backfill {
+	runCtx, runCancel := context.WithCancel(context.Background())
 	return &Backfill{
 		batchSize: o.BatchSize,
 		db:        o.DB,
 		logg:      o.Logg,
 		pool:      o.Pool,
+		chain:     o.Chain,
+		processor: o.Processor,
 		stopCh:    make(chan struct{}),
 		ticker:    time.NewTicker(idleCheckInterval),
 		scanPos:   0,
+		runCtx:    runCtx,
+		runCancel: runCancel,
 	}
 }
 
 func (b *Backfill) Stop() {
 	b.ticker.Stop()
+	b.runCancel()
 	b.stopCh <- struct{}{}
 }
 
@@ -105,7 +122,7 @@ func (b *Backfill) Run(skipLatest bool) error {
 			"window_start", b.scanPos,
 			"window_end", windowEnd,
 		)
-		if err := b.db.EnqueueBatch(missing); err != nil {
+		if err := b.preloadAndEnqueue(b.runCtx, missing); err != nil {
 			return fmt.Errorf("backfill enqueue batch failed: %v", err)
 		}
 		b.pool.Notify()
@@ -175,7 +192,7 @@ func (b *Backfill) CatchUp(ctx context.Context) error {
 			return fmt.Errorf("catchup: scan window [%d,%d]: %w", pos, windowEnd, err)
 		}
 		if len(missing) > 0 {
-			if err := b.db.EnqueueBatch(missing); err != nil {
+			if err := b.preloadAndEnqueue(ctx, missing); err != nil {
 				return fmt.Errorf("catchup: enqueue batch: %w", err)
 			}
 			b.pool.Notify()
@@ -190,5 +207,40 @@ func (b *Backfill) CatchUp(ctx context.Context) error {
 	}
 
 	b.logg.Info("historical catchup complete")
+	return nil
+}
+
+// preloadAndEnqueue enqueues block numbers into the DB first, then batch-fetches
+// the blocks from the RPC node in groups of up to maxBlockFetchBatch and stores
+// them in the processor's preload cache so workers can skip the individual
+// GetBlock RPC call. Enqueueing before fetching ensures the preload map never
+// holds entries for blocks that were never enqueued. If a batch fetch fails the
+// error is logged and the affected blocks are skipped — workers fall back to
+// individual GetBlock calls without any loss of correctness.
+func (b *Backfill) preloadAndEnqueue(ctx context.Context, blocks []uint64) error {
+	if err := b.db.EnqueueBatch(blocks); err != nil {
+		return err
+	}
+
+	for i := 0; i < len(blocks); i += maxBlockFetchBatch {
+		end := i + maxBlockFetchBatch
+		if end > len(blocks) {
+			end = len(blocks)
+		}
+		sub := blocks[i:end]
+
+		fetched, err := b.chain.GetBlocks(ctx, sub)
+		if err != nil {
+			b.logg.Warn("block preload batch failed, workers will fetch individually",
+				"start", sub[0], "count", len(sub), "error", err)
+			continue
+		}
+		for _, block := range fetched {
+			if block != nil {
+				b.processor.PreloadBlock(block)
+			}
+		}
+	}
+
 	return nil
 }
