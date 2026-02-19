@@ -63,8 +63,9 @@ func main() {
 	lo.Debug("loaded rpc fetcher")
 
 	dbInstance, err := db.New(db.DBOpts{
-		Logg:   lo,
-		DBType: ko.MustString("core.db_type"),
+		Logg:            lo,
+		DBType:          ko.MustString("core.db_type"),
+		MaxBlockRetries: ko.MustInt("core.max_block_retries"),
 	})
 	if err != nil {
 		lo.Error("could not initialize blocks db", "error", err)

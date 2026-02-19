@@ -11,7 +11,7 @@ func setupTestDB(t *testing.T) DB {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "test.db")
 
-	db, err := NewBoltDBWithPath(dbPath)
+	db, err := NewBoltDBWithPath(dbPath, 5)
 	if err != nil {
 		t.Fatalf("failed to create db: %v", err)
 	}

@@ -18,6 +18,7 @@ func HandleContractCreation(hc *HandlerContainer) router.ContractCreationHandler
 			Timestamp:       ccp.Timestamp,
 			TxHash:          ccp.TxHash,
 			TxType:          contractCreationEventName,
+			Index:           event.ContractCreationIndex,
 			Payload: map[string]any{
 				"from": ccp.From,
 			},

@@ -2,6 +2,7 @@ package pool
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"sync"
 	"sync/atomic"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/cosmo-local-credit/eth-tracker/db"
 	"github.com/cosmo-local-credit/eth-tracker/internal/processor"
+	"github.com/cosmo-local-credit/eth-tracker/internal/pub"
 )
 
 type (
@@ -82,6 +84,26 @@ func (p *Pool) runWorker(ctx context.Context, id int) {
 				atomic.AddInt64(&p.inFlight, -1)
 
 				if err != nil {
+					if errors.Is(err, pub.ErrCircuitOpen) {
+						p.logg.Warn("NATS circuit open, re-queuing block without consuming retry",
+							"worker_id", id,
+							"block", blockNum,
+						)
+						if reqErr := p.db.RequeueWithoutRetry(blockNum); reqErr != nil {
+							p.logg.Error("failed to re-queue block after circuit open",
+								"block", blockNum, "error", reqErr)
+							if failErr := p.db.Fail(blockNum, reqErr); failErr != nil {
+								p.logg.Error("failed to mark block failed after re-queue error",
+									"block", blockNum, "error", failErr)
+							}
+						}
+						select {
+						case <-time.After(5 * time.Second):
+						case <-ctx.Done():
+							return
+						}
+						continue
+					}
 					p.logg.Error("block processing failed",
 						"worker_id", id,
 						"block", blockNum,

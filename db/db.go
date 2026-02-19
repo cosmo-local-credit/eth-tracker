@@ -18,6 +18,7 @@ type (
 		Dequeue() (uint64, bool, error)
 		Complete(blockNumber uint64) error
 		Fail(blockNumber uint64, processErr error) error
+		RequeueWithoutRetry(blockNumber uint64) error
 		RecoverStale() (int, error)
 		RetryFailed() (int, error)
 		GetNextMissingBatch(fromBlock, toBlock uint64, batchSize int) ([]uint64, error)
@@ -43,30 +44,23 @@ type (
 	}
 
 	DBOpts struct {
-		Logg   *slog.Logger
-		DBType string
+		Logg            *slog.Logger
+		DBType          string
+		MaxBlockRetries int
 	}
 )
 
 func New(o DBOpts) (DB, error) {
-	var (
-		err error
-		db  DB
-	)
+	maxRetries := 5
+	if o.MaxBlockRetries > 0 {
+		maxRetries = o.MaxBlockRetries
+	}
 
 	switch o.DBType {
 	case "bolt":
-		db, err = NewBoltDB()
-		if err != nil {
-			return nil, err
-		}
+		return NewBoltDBWithPath(dbFolderName, maxRetries)
 	default:
-		db, err = NewBoltDB()
-		if err != nil {
-			return nil, err
-		}
 		o.Logg.Warn("invalid db type, using default type (bolt)")
+		return NewBoltDBWithPath(dbFolderName, maxRetries)
 	}
-
-	return db, nil
 }

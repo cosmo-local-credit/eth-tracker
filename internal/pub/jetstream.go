@@ -122,7 +122,6 @@ func NewJetStreamPub(o JetStreamOpts) (Pub, error) {
 	natsConn, err := nats.Connect(o.Endpoint,
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(2*time.Second),
-		nats.ReconnectBufSize(64*1024*1024),
 		nats.DrainTimeout(5*time.Second),
 		nats.DisconnectErrHandler(func(nc *nats.Conn, err error) {
 			o.Logg.Warn("NATS disconnected", "error", err)

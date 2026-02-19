@@ -13,7 +13,8 @@ import (
 )
 
 type boltDB struct {
-	db *bolt.DB
+	db         *bolt.DB
+	maxRetries int
 }
 
 const (
@@ -32,8 +33,6 @@ const (
 	StateProcessing byte = 0x02
 	StateCompleted  byte = 0x03
 	StateFailed     byte = 0x04
-
-	maxRetries = 5
 )
 
 var sortableOrder = binary.BigEndian
@@ -49,11 +48,7 @@ var (
 	upperBoundKeyB = []byte(upperBoundKey)
 )
 
-func NewBoltDB() (DB, error) {
-	return NewBoltDBWithPath(dbFolderName)
-}
-
-func NewBoltDBWithPath(path string) (DB, error) {
+func NewBoltDBWithPath(path string, maxRetries int) (DB, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
@@ -66,7 +61,7 @@ func NewBoltDBWithPath(path string) (DB, error) {
 		return nil, err
 	}
 
-	bdb := &boltDB{db: db}
+	bdb := &boltDB{db: db, maxRetries: maxRetries}
 	if err := bdb.initBuckets(); err != nil {
 		db.Close()
 		return nil, err
@@ -271,7 +266,7 @@ func (d *boltDB) Fail(blockNumber uint64, processErr error) error {
 
 		retryCount := existing[1] + 1
 
-		if retryCount >= maxRetries {
+		if int(retryCount) >= d.maxRetries {
 			entry := DLQEntry{
 				BlockNumber: blockNumber,
 				LastError:   processErr.Error(),
@@ -289,6 +284,33 @@ func (d *boltDB) Fail(blockNumber uint64, processErr error) error {
 		}
 
 		return queue.Put(key[:], stateValue(StateFailed, retryCount))
+	})
+}
+
+// RequeueWithoutRetry moves a block back to StatePending without incrementing
+// its retry counter. Used when a publish fails due to a transient infrastructure
+// outage (e.g. circuit breaker open) rather than a genuine processing error, so
+// the block's retry budget is preserved for real failures.
+func (d *boltDB) RequeueWithoutRetry(blockNumber uint64) error {
+	return d.db.Update(func(tx *bolt.Tx) error {
+		queue, err := mustBucket(tx, blockQueueBucketB, blockQueueBucket)
+		if err != nil {
+			return err
+		}
+		pending, err := mustBucket(tx, blockPendingBucketB, blockPendingBucket)
+		if err != nil {
+			return err
+		}
+		key := u64Key(blockNumber)
+		existing := queue.Get(key[:])
+		retryCount := byte(0)
+		if len(existing) >= 2 {
+			retryCount = existing[1]
+		}
+		if err := queue.Put(key[:], stateValue(StatePending, retryCount)); err != nil {
+			return err
+		}
+		return pending.Put(key[:], nil)
 	})
 }
 

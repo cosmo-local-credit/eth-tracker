@@ -2,6 +2,11 @@ package event
 
 import "encoding/json"
 
+// ContractCreationIndex is assigned to Event.Index for contract creation events
+// so their JetStream MsgID (txHash:index) never collides with a real log at
+// index 0 emitted by the same transaction.
+const ContractCreationIndex = ^uint(0)
+
 type (
 	Event struct {
 		Block           uint64         `json:"block"`
