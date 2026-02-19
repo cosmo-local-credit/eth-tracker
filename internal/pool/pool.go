@@ -3,7 +3,9 @@ package pool
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -80,8 +82,7 @@ func (p *Pool) runWorker(ctx context.Context, id int) {
 					break
 				}
 
-				err = p.processor.ProcessBlock(ctx, blockNum)
-				atomic.AddInt64(&p.inFlight, -1)
+				err = p.processBlock(ctx, id, blockNum)
 
 				if err != nil {
 					if errors.Is(err, pub.ErrCircuitOpen) {
@@ -123,6 +124,32 @@ func (p *Pool) runWorker(ctx context.Context, id int) {
 			}
 		}
 	}
+}
+
+// processBlock calls the processor and owns the inFlight decrement for the
+// "block was dequeued" slot that was claimed before Dequeue. A deferred
+// recover catches any panic inside ProcessBlock: the inFlight counter is
+// decremented, the panic is logged with a full stack trace, and a regular
+// error is returned so the caller's existing db.Fail path handles it.
+func (p *Pool) processBlock(ctx context.Context, id int, blockNum uint64) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			atomic.AddInt64(&p.inFlight, -1)
+			buf := make([]byte, 4096)
+			n := runtime.Stack(buf, false)
+			p.logg.Error("panic in block processor, recovering worker",
+				"worker_id", id,
+				"block", blockNum,
+				"panic", r,
+				"stack", string(buf[:n]),
+			)
+			err = fmt.Errorf("panic: %v", r)
+		}
+	}()
+
+	err = p.processor.ProcessBlock(ctx, blockNum)
+	atomic.AddInt64(&p.inFlight, -1)
+	return
 }
 
 func (p *Pool) Push(block uint64) {
