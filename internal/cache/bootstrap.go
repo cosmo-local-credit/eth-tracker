@@ -125,7 +125,7 @@ func reconcileWatchlistMode(ctx context.Context, cache *persistentCache, watchli
 	}
 
 	toRemove := make([]string, 0)
-	cache.xmap.Range(func(address string, _ bool) bool {
+	cache.xmap.Range(func(address string, _ int64) bool {
 		if _, keep := watch[address]; !keep {
 			toRemove = append(toRemove, address)
 		}

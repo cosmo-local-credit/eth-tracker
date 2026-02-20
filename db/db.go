@@ -37,7 +37,8 @@ type (
 		AddressCacheAdd(address string) error
 		AddressCacheAddBatch(addresses []string) error
 		AddressCacheRemove(address string) error
-		AddressCacheLoadAll() ([]string, error)
+		AddressCacheDecrement(address string) error
+		AddressCacheLoadAll() (map[string]int64, error)
 
 		Cleanup() error
 	}

@@ -8,7 +8,7 @@ import (
 )
 
 type persistentCache struct {
-	xmap *xsync.MapOf[string, bool]
+	xmap *xsync.MapOf[string, int64]
 	db   db.DB
 }
 
@@ -16,23 +16,17 @@ type persistentCache struct {
 // into the in-memory map. No RPC calls — pure local disk read.
 func newPersistentCache(database db.DB) (*persistentCache, error) {
 	c := &persistentCache{
-		xmap: xsync.NewMapOf[string, bool](),
+		xmap: xsync.NewMapOf[string, int64](),
 		db:   database,
 	}
-	addresses, err := database.AddressCacheLoadAll()
+	counts, err := database.AddressCacheLoadAll()
 	if err != nil {
 		return nil, err
 	}
-	for _, addr := range addresses {
-		c.xmap.Store(addr, true)
+	for addr, count := range counts {
+		c.xmap.Store(addr, count)
 	}
 	return c, nil
-}
-
-// loadInMemory populates the xsync map without writing to BoltDB.
-// Used only during background sync to avoid double-writes.
-func (c *persistentCache) loadInMemory(address string) {
-	c.xmap.Store(address, true)
 }
 
 func (c *persistentCache) Add(_ context.Context, address string) error {
@@ -41,7 +35,9 @@ func (c *persistentCache) Add(_ context.Context, address string) error {
 	if err := c.db.AddressCacheAdd(address); err != nil {
 		return err
 	}
-	c.xmap.Store(address, true)
+	c.xmap.Compute(address, func(old int64, _ bool) (int64, bool) {
+		return old + 1, false
+	})
 	return nil
 }
 
@@ -55,7 +51,9 @@ func (c *persistentCache) AddBatch(_ context.Context, addresses []string) error 
 	}
 
 	for _, address := range addresses {
-		c.xmap.Store(address, true)
+		c.xmap.Compute(address, func(old int64, _ bool) (int64, bool) {
+			return old + 1, false
+		})
 	}
 
 	return nil
@@ -69,6 +67,19 @@ func (c *persistentCache) Remove(_ context.Context, address string) error {
 	return nil
 }
 
+func (c *persistentCache) Decrement(_ context.Context, address string) error {
+	if err := c.db.AddressCacheDecrement(address); err != nil {
+		return err
+	}
+	c.xmap.Compute(address, func(old int64, _ bool) (int64, bool) {
+		if old <= 1 {
+			return 0, true // delete the entry
+		}
+		return old - 1, false
+	})
+	return nil
+}
+
 // Exists reads only from xsync map — no disk I/O.
 // This is called on every log in every block; it must stay fast.
 func (c *persistentCache) Exists(_ context.Context, key string) (bool, error) {
@@ -76,10 +87,9 @@ func (c *persistentCache) Exists(_ context.Context, key string) (bool, error) {
 	return ok, nil
 }
 
-func (c *persistentCache) ExistsNetwork(_ context.Context, token string, addresses ...string) (bool, error) {
-	if _, ok := c.xmap.Load(token); !ok {
-		return false, nil
-	}
+// ExistsAny returns true if at least one of the provided addresses is present
+// in the cache. Only the xsync map is consulted — no disk I/O.
+func (c *persistentCache) ExistsAny(_ context.Context, addresses ...string) (bool, error) {
 	for _, v := range addresses {
 		if _, ok := c.xmap.Load(v); ok {
 			return true, nil

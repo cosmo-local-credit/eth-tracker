@@ -331,6 +331,78 @@ func TestAddressCacheAddBatch(t *testing.T) {
 	}
 }
 
+func TestAddressCacheDecrement(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Add the same address three times → count should be 3.
+	db.AddressCacheAdd("0xabc")
+	db.AddressCacheAdd("0xabc")
+	db.AddressCacheAdd("0xabc")
+
+	counts, _ := db.AddressCacheLoadAll()
+	if counts["0xabc"] != 3 {
+		t.Fatalf("expected count 3 after three adds, got %d", counts["0xabc"])
+	}
+
+	// First decrement: count → 2, key must still be present.
+	if err := db.AddressCacheDecrement("0xabc"); err != nil {
+		t.Fatalf("decrement failed: %v", err)
+	}
+	counts, _ = db.AddressCacheLoadAll()
+	if counts["0xabc"] != 2 {
+		t.Fatalf("expected count 2 after first decrement, got %d", counts["0xabc"])
+	}
+
+	// Second decrement: count → 1, key must still be present.
+	if err := db.AddressCacheDecrement("0xabc"); err != nil {
+		t.Fatalf("decrement failed: %v", err)
+	}
+	counts, _ = db.AddressCacheLoadAll()
+	if counts["0xabc"] != 1 {
+		t.Fatalf("expected count 1 after second decrement, got %d", counts["0xabc"])
+	}
+
+	// Third decrement: count reaches 0 → key must be deleted.
+	if err := db.AddressCacheDecrement("0xabc"); err != nil {
+		t.Fatalf("decrement failed: %v", err)
+	}
+	counts, _ = db.AddressCacheLoadAll()
+	if _, exists := counts["0xabc"]; exists {
+		t.Fatalf("expected key to be deleted when count reaches zero, but it still exists with count %d", counts["0xabc"])
+	}
+}
+
+func TestAddressCacheDecrementAbsentKey(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Decrementing a key that was never added must not error and must leave no
+	// entry in the store.
+	if err := db.AddressCacheDecrement("0xnone"); err != nil {
+		t.Fatalf("decrement on absent key returned error: %v", err)
+	}
+	counts, _ := db.AddressCacheLoadAll()
+	if _, exists := counts["0xnone"]; exists {
+		t.Fatal("expected absent key to remain absent after decrement")
+	}
+}
+
+func TestAddressCacheRemoveIgnoresCount(t *testing.T) {
+	db := setupTestDB(t)
+
+	// Add three times so count = 3, then Remove must delete unconditionally.
+	db.AddressCacheAdd("0xabc")
+	db.AddressCacheAdd("0xabc")
+	db.AddressCacheAdd("0xabc")
+
+	if err := db.AddressCacheRemove("0xabc"); err != nil {
+		t.Fatalf("remove failed: %v", err)
+	}
+	counts, _ := db.AddressCacheLoadAll()
+	if _, exists := counts["0xabc"]; exists {
+		t.Fatal("expected key to be deleted unconditionally by Remove regardless of count")
+	}
+}
+
 func TestConcurrentEnqueue(t *testing.T) {
 	db := setupTestDB(t)
 

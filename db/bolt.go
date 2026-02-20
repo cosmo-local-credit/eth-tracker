@@ -550,6 +550,25 @@ func (d *boltDB) PendingCount() (int, error) {
 	return count, err
 }
 
+// readCount parses a ref-count value from BoltDB.
+// Legacy entries written as a 1-byte sentinel (0x01) are treated as count=1.
+// Current entries are big-endian uint64 (8 bytes).
+func readCount(v []byte) uint64 {
+	if len(v) == 8 {
+		return binary.BigEndian.Uint64(v)
+	}
+	if len(v) > 0 {
+		return 1
+	}
+	return 0
+}
+
+func putCount(count uint64) []byte {
+	var val [8]byte
+	binary.BigEndian.PutUint64(val[:], count)
+	return val[:]
+}
+
 func (d *boltDB) AddressCacheAdd(address string) error {
 	return d.db.Batch(func(tx *bolt.Tx) error {
 		b, err := mustBucket(tx, addressCacheBucketB, addressCacheBucket)
@@ -557,10 +576,8 @@ func (d *boltDB) AddressCacheAdd(address string) error {
 			return err
 		}
 		key := []byte(address)
-		if b.Get(key) != nil {
-			return nil
-		}
-		return b.Put(key, []byte{0x01})
+		count := readCount(b.Get(key))
+		return b.Put(key, putCount(count+1))
 	})
 }
 
@@ -577,10 +594,8 @@ func (d *boltDB) AddressCacheAddBatch(addresses []string) error {
 
 		for _, address := range addresses {
 			key := []byte(address)
-			if b.Get(key) != nil {
-				continue
-			}
-			if err := b.Put(key, []byte{0x01}); err != nil {
+			count := readCount(b.Get(key))
+			if err := b.Put(key, putCount(count+1)); err != nil {
 				return err
 			}
 		}
@@ -599,17 +614,32 @@ func (d *boltDB) AddressCacheRemove(address string) error {
 	})
 }
 
-func (d *boltDB) AddressCacheLoadAll() ([]string, error) {
-	var addresses []string
+func (d *boltDB) AddressCacheDecrement(address string) error {
+	return d.db.Batch(func(tx *bolt.Tx) error {
+		b, err := mustBucket(tx, addressCacheBucketB, addressCacheBucket)
+		if err != nil {
+			return err
+		}
+		key := []byte(address)
+		count := readCount(b.Get(key))
+		if count <= 1 {
+			return b.Delete(key)
+		}
+		return b.Put(key, putCount(count-1))
+	})
+}
+
+func (d *boltDB) AddressCacheLoadAll() (map[string]int64, error) {
+	result := make(map[string]int64)
 	err := d.db.View(func(tx *bolt.Tx) error {
 		b, err := mustBucket(tx, addressCacheBucketB, addressCacheBucket)
 		if err != nil {
 			return err
 		}
-		return b.ForEach(func(k, _ []byte) error {
-			addresses = append(addresses, string(k))
+		return b.ForEach(func(k, v []byte) error {
+			result[string(k)] = int64(readCount(v))
 			return nil
 		})
 	})
-	return addresses, err
+	return result, err
 }
