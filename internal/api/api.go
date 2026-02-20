@@ -10,12 +10,18 @@ import (
 	"github.com/uptrace/bunrouter"
 )
 
-func New(statsProvider *stats.Stats, pub pub.Pub) *bunrouter.Router {
+func New(statsProvider *stats.Stats, pub pub.Pub, enablePprof bool) *bunrouter.Router {
 	router := bunrouter.New()
 
 	router.GET("/metrics", metricsHandler())
 	router.GET("/health", healthHandler(statsProvider, pub))
 	router.GET("/stats", statsHandler(statsProvider))
+
+	if enablePprof {
+		pprofHandler := bunrouter.HTTPHandler(http.DefaultServeMux)
+		router.GET("/debug/pprof/*path", pprofHandler)
+		router.POST("/debug/pprof/*path", pprofHandler)
+	}
 
 	return router
 }

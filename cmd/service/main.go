@@ -25,6 +25,9 @@ import (
 	"github.com/cosmo-local-credit/eth-tracker/internal/syncer"
 	"github.com/cosmo-local-credit/eth-tracker/internal/util"
 	"github.com/knadh/koanf/v2"
+
+	// Only active when the debug server is started (TRACKER_PROFILE=1).
+	_ "net/http/pprof"
 )
 
 const defaultGracefulShutdownPeriod = time.Second * 30
@@ -48,6 +51,11 @@ func init() {
 
 func main() {
 	lo.Info("starting cosmo-local-credit tracker", "build", build, "chain_id", ko.MustInt64("chain.chainid"))
+
+	enablePprof := os.Getenv("TRACKER_PROFILE") == "1"
+	if enablePprof {
+		lo.Info("pprof profiling enabled", "endpoints", "http://"+ko.MustString("api.address")+"/debug/pprof/")
+	}
 
 	var wg sync.WaitGroup
 	ctx, stop := notifyShutdown()
@@ -175,7 +183,7 @@ func main() {
 
 	apiServer := &http.Server{
 		Addr:    ko.MustString("api.address"),
-		Handler: api.New(statsProvider, jetStreamPub),
+		Handler: api.New(statsProvider, jetStreamPub, enablePprof),
 	}
 	lo.Debug("bootstrapped API server")
 
@@ -183,6 +191,18 @@ func main() {
 
 	workerPool.Start(ctx)
 	lo.Debug("started worker pool")
+
+	// Start the API server before catchup so health/metrics/pprof endpoints
+	// are reachable during the historical drain phase.
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		lo.Info("metrics and stats server starting", "address", ko.MustString("api.address"))
+		if err := apiServer.ListenAndServe(); err != http.ErrServerClosed {
+			lo.Error("failed to start API server", "error", err)
+			os.Exit(1)
+		}
+	}()
 
 	if err := backfiller.CatchUp(ctx); err != nil {
 		lo.Error("historical catchup failed", "error", err)
@@ -210,18 +230,9 @@ func main() {
 		statsProvider.StartStatsPrinter()
 	}()
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
-		lo.Info("metrics and stats server starting", "address", ko.MustString("api.address"))
-		if err := apiServer.ListenAndServe(); err != http.ErrServerClosed {
-			lo.Error("failed to start API server", "error", err)
-			os.Exit(1)
-		}
-	}()
-
 	<-ctx.Done()
 	lo.Info("shutdown signal received")
+
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), defaultGracefulShutdownPeriod)
 
 	wg.Add(1)

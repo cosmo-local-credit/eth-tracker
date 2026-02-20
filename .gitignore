@@ -1,2 +1,5 @@
-eth-tacker
+eth-tracker
 .env
+*.pprof
+db/tracker_db
+profiles

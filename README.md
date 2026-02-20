@@ -6,9 +6,6 @@ A fast and lightweight tracker designed to monitor EVM blockchains for live and
 historical transaction events, including reverted transactions. It filters these
 events and publishes them to NATS for further processing.
 
-On a warmed up archive RPC node (HTTP) with the default config, it can process
-in excess of 10k blocks/min utilizing not more than 50 MB of RAM.
-
 It applies deduplication at the NATS level, making it safe to run in a
 distributed fashion.
 
@@ -17,7 +14,7 @@ directive in the `go.mod` file pointing to the EVM chain's `*geth` compatible
 source code. This will allow the tracker to process transaction types other than
 Ethereum's `0x0, 0x1 and 0x2`.
 
-### CEL2
+### Celo L2
 
 We maintain a CEL2 compatible tracker (source and container image) on the `cel2`
 branch.
@@ -109,7 +106,8 @@ docker compose up
     "timetamp" Number,
     "transactionHash": String,
     "transactionType": String,
-    "payload": Object
+    "payload": Object,
+    "index": Number,
 }
 ```
 
@@ -128,6 +126,24 @@ A `tracker_db` file is created on the first run. This keeps track of all blocks
 missed by the processor to attempt a retry later on. This file should not be
 deleted if you want to maintain resume support for historical tracking across
 restarts.
+
+#### DB File Compaction
+
+Once the catchup drain completes and normal operation resumes, stop the tracker
+and compact the database to reclaim the disk space and reduce the mmap footprint:
+
+```bash
+go install go.etcd.io/bbolt/cmd/bbolt@latest
+
+bbolt compact -o db/tracker_db_compacted db/tracker_db
+
+ls -lh db/tracker_db db/tracker_db_compacted
+
+mv db/tracker_db db/tracker_db_backup
+mv db/tracker_db_compacted db/tracker_db
+```
+
+After restarting, RSS (From memory mapped bbolt file) will drop to reflect the compacted file size.
 
 ## License
 

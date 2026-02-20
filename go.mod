@@ -1,6 +1,6 @@
 module github.com/cosmo-local-credit/eth-tracker
 
-go 1.25.4
+go 1.26
 
 replace github.com/ethereum/go-ethereum => github.com/celo-org/op-geth v1.101411.1-0.20260114114436-8b246d9c8c86
 
