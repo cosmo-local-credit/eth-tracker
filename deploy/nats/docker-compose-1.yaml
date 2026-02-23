@@ -18,6 +18,12 @@ services:
       - "--jetstream"
       - "--store_dir=/data"
     restart: always
+    networks:
+      - cluster
 
 volumes:
   nats-data:
+
+networks:
+  cluster:
+    external: true
