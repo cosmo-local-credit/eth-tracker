@@ -37,10 +37,6 @@ func HandleIndexRemoveLog(hc *HandlerContainer) router.LogHandlerFunc {
 			},
 		}
 
-		if err := hc.cache.Decrement(ctx, address.Hex()); err != nil {
-			return err
-		}
-
 		return c(ctx, indexRemoveEvent)
 	}
 }

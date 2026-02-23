@@ -1,0 +1,23 @@
+services:
+  nats:
+    image: nats:2
+    container_name: nats-1
+    ports:
+      - "4222:4222"
+      - "6222:6222"
+      - "8222:8222"
+    volumes:
+      - nats-data:/data
+    command:
+      - "--name=nats-1"
+      - "--cluster_name=nats-cluster"
+      - "--cluster=nats://0.0.0.0:6222"
+      - "--cluster_advertise=10.0.0.2:6222"
+      - "--routes=nats-route://10.0.0.2:6222,nats-route://10.0.0.3:6222,nats-route://10.0.0.4:6222"
+      - "--http_port=8222"
+      - "--jetstream"
+      - "--store_dir=/data"
+    restart: always
+
+volumes:
+  nats-data:
