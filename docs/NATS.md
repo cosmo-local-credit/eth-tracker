@@ -152,7 +152,7 @@ This event is emitted when a token is swapped/withdrawn from any swap pool. The 
 
 #### `TRACKER.QUOTER_PRICE_INDEX_UPDATED`
 
-This event is emitted when the exchange rate is updated on the pool quoter smart contract. The exchange rate value has a precision of 10^4 ([More details](https://github.com/grassrootseconomics/price-index-quoter/blob/master/test/PriceIndexQuoter.t.sol#L20)).
+This event is emitted when the exchange rate is updated on the pool quoter smart contract. The exchange rate value has a precision of 10^4 ([More details](https://github.com/cosmo-local-credit/price-index-quoter/blob/master/test/PriceIndexQuoter.t.sol#L20)).
 
 ```json
 {
@@ -297,5 +297,5 @@ For a reverted transaction:
 
 The event structs can be imported from:
 
-* chain events: https://github.com/grassrootseconomics/eth-tracker/pkg/event
-* custodial events: https://github.com/grassrootseconomics/eth-custodial/pkg/event
+* chain events: https://github.com/cosmo-local-credit/eth-tracker/pkg/event
+* custodial events: https://github.com/cosmo-local-credit/eth-custodial/pkg/event

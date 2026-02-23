@@ -1,6 +1,6 @@
 # eth-tracker
 
-![GitHub Tag](https://img.shields.io/github/v/tag/grassrootseconomics/eth-tracker)
+![GitHub Tag](https://img.shields.io/github/v/tag/cosmo-local-credit/eth-tracker)
 
 A fast and lightweight tracker designed to monitor EVM blockchains for live and
 historical transaction events, including reverted transactions. It filters these
