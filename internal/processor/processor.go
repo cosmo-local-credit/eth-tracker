@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math/big"
 	"sync"
 
 	"github.com/cosmo-local-credit/eth-tracker/db"
@@ -12,34 +13,38 @@ import (
 	"github.com/cosmo-local-credit/eth-tracker/pkg/router"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 )
 
 type (
 	ProcessorOpts struct {
-		Cache  cache.Cache
-		Chain  chain.Chain
-		DB     db.DB
-		Router *router.Router
-		Logg   *slog.Logger
+		Cache       cache.Cache
+		Chain       chain.Chain
+		DB          db.DB
+		Router      *router.Router
+		Logg        *slog.Logger
+		ChainConfig *params.ChainConfig
 	}
 
 	Processor struct {
-		cache     cache.Cache
-		chain     chain.Chain
-		db        db.DB
-		router    *router.Router
-		logg      *slog.Logger
-		preloaded sync.Map // map[uint64]*types.Block, populated by PreloadBlock
+		cache       cache.Cache
+		chain       chain.Chain
+		db          db.DB
+		router      *router.Router
+		logg        *slog.Logger
+		chainConfig *params.ChainConfig
+		preloaded   sync.Map
 	}
 )
 
 func NewProcessor(o ProcessorOpts) *Processor {
 	return &Processor{
-		cache:  o.Cache,
-		chain:  o.Chain,
-		db:     o.DB,
-		router: o.Router,
-		logg:   o.Logg,
+		cache:       o.Cache,
+		chain:       o.Chain,
+		db:          o.DB,
+		router:      o.Router,
+		logg:        o.Logg,
+		chainConfig: o.ChainConfig,
 	}
 }
 
@@ -68,11 +73,16 @@ func (p *Processor) ProcessBlock(ctx context.Context, blockNumber uint64) error 
 		return fmt.Errorf("receipts fetch error: block %d: %w", blockNumber, err)
 	}
 
-	// Index every transaction in the block by hash so we can look up sender
-	// and calldata without extra per-transaction RPC calls.
 	txByHash := make(map[common.Hash]*types.Transaction, len(block.Transactions()))
 	for _, tx := range block.Transactions() {
 		txByHash[tx.Hash()] = tx
+	}
+
+	var signer types.Signer
+	if p.chainConfig != nil {
+		signer = types.MakeSigner(p.chainConfig, block.Number(), block.Time())
+	} else {
+		signer = types.LatestSignerForChainID(new(big.Int).SetInt64(1337))
 	}
 
 	for _, receipt := range receipts {
@@ -101,7 +111,7 @@ func (p *Processor) ProcessBlock(ctx context.Context, blockNumber uint64) error 
 					return fmt.Errorf("transaction %s not found in block %d", receipt.TxHash.Hex(), blockNumber)
 				}
 
-				from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+				from, err := types.Sender(signer, tx)
 				if err != nil {
 					return fmt.Errorf("transaction decode error: tx %s: %w", receipt.TxHash.Hex(), err)
 				}
@@ -135,7 +145,7 @@ func (p *Processor) ProcessBlock(ctx context.Context, blockNumber uint64) error 
 			}
 
 			if tx.To() == nil {
-				from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+				from, err := types.Sender(signer, tx)
 				if err != nil {
 					return fmt.Errorf("transaction decode error: tx %s: %w", receipt.TxHash.Hex(), err)
 				}
@@ -166,7 +176,7 @@ func (p *Processor) ProcessBlock(ctx context.Context, blockNumber uint64) error 
 					return err
 				}
 				if exists {
-					from, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+					from, err := types.Sender(signer, tx)
 					if err != nil {
 						return fmt.Errorf("transaction decode error: tx %s: %w", receipt.TxHash.Hex(), err)
 					}

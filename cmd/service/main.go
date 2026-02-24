@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"os"
 	"os/signal"
@@ -24,9 +25,9 @@ import (
 	"github.com/cosmo-local-credit/eth-tracker/internal/stats"
 	"github.com/cosmo-local-credit/eth-tracker/internal/syncer"
 	"github.com/cosmo-local-credit/eth-tracker/internal/util"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/knadh/koanf/v2"
 
-	// Only active when the debug server is started (TRACKER_PROFILE=1).
 	_ "net/http/pprof"
 )
 
@@ -128,12 +129,15 @@ func main() {
 	router := bootstrapEventRouter(cacheInstance, jetStreamPub.Send, ko.String("bootstrap.custodial_registration_address"))
 	lo.Debug("bootstrapped event router")
 
+	chainConfig := buildChainConfig(ko.MustInt64("chain.chainid"))
+
 	blockProcessor := processor.NewProcessor(processor.ProcessorOpts{
-		Cache:  cacheInstance,
-		Chain:  chainClient,
-		DB:     dbInstance,
-		Router: router,
-		Logg:   lo,
+		Cache:       cacheInstance,
+		Chain:       chainClient,
+		DB:          dbInstance,
+		Router:      router,
+		Logg:        lo,
+		ChainConfig: chainConfig,
 	})
 	lo.Debug("bootstrapped processor")
 
@@ -267,4 +271,19 @@ func main() {
 
 func notifyShutdown() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+}
+
+func buildChainConfig(chainID int64) *params.ChainConfig {
+	return &params.ChainConfig{
+		ChainID:        big.NewInt(chainID),
+		HomesteadBlock: big.NewInt(0),
+		EIP155Block:    big.NewInt(0),
+		BerlinBlock:    big.NewInt(0),
+		LondonBlock:    big.NewInt(0),
+		Cel2Time:       uint64Ptr(1 << 62),
+	}
+}
+
+func uint64Ptr(v uint64) *uint64 {
+	return &v
 }
