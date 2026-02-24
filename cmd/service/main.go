@@ -110,7 +110,7 @@ func main() {
 	lo.Debug("loaded and boostrapped cache")
 
 	jetStreamPub, err := pub.NewJetStreamPub(pub.JetStreamOpts{
-		Endpoint:                ko.MustString("jetstream.endpoint"),
+		Endpoints:               ko.Strings("jetstream.endpoint"),
 		PersistDuration:         time.Duration(ko.MustInt("jetstream.persist_duration_hrs")) * time.Hour,
 		DedupWindow:             time.Duration(ko.Int("jetstream.dedup_window_hrs")) * time.Hour,
 		StreamReplicas:          ko.Int("jetstream.stream_replicas"),

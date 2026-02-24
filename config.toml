@@ -44,7 +44,7 @@ custodial_registration_address = ""
 #   stream_replicas = 1
 [jetstream]
 enable = true
-endpoint = "nats://127.0.0.1:4222"
+endpoints = ["nats://127.0.0.1:4222"]
 persist_duration_hrs = 48
 dedup_window_hrs     = 48  # must equal persist_duration_hrs so every retained event is
                            # also within the dedup window. A shorter dedup window creates

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,7 +19,7 @@ var ErrCircuitOpen = errors.New("circuit breaker is open")
 
 type (
 	JetStreamOpts struct {
-		Endpoint                string
+		Endpoints               []string
 		PersistDuration         time.Duration
 		DedupWindow             time.Duration
 		StreamReplicas          int
@@ -119,7 +120,8 @@ var streamSubjects = []string{
 func NewJetStreamPub(o JetStreamOpts) (Pub, error) {
 	drainDone := make(chan struct{})
 
-	natsConn, err := nats.Connect(o.Endpoint,
+	natsConn, err := nats.Connect(
+		strings.Join(o.Endpoints, ","),
 		nats.MaxReconnects(-1),
 		nats.ReconnectWait(2*time.Second),
 		nats.DrainTimeout(5*time.Second),
