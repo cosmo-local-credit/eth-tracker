@@ -137,6 +137,7 @@ func NewJetStreamPub(o JetStreamOpts) (Pub, error) {
 	if err != nil {
 		return nil, fmt.Errorf("NATS connect: %w", err)
 	}
+	o.Logg.Info("Successfully connected to NATS server", "status", natsConn.Status().String(), "servers", natsConn.Servers())
 
 	js, err := jetstream.New(natsConn)
 	if err != nil {
