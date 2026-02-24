@@ -147,6 +147,13 @@ mv db/tracker_db_compacted db/tracker_db
 
 After restarting, RSS (From memory mapped bbolt file) will drop to reflect the compacted file size.
 
+## Historical changes
+
+This project was inspired by https://github.com/chaintool-py/eth-monitor, and evolved through these historical repos:
+
+* https://github.com/grassrootseconomics/cic-chain-events
+* https://github.com/grassrootseconomics/eth-tracker
+
 ## License
 
 [AGPL-3.0](LICENSE).
