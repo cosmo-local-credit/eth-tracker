@@ -41,6 +41,9 @@ func InitConfig(lo *slog.Logger, confFilePath string) *koanf.Koanf {
 
 	err := ko.Load(env.ProviderWithValue("TRACKER_", ".", func(s string, v string) (string, interface{}) {
 		key := strings.ReplaceAll(strings.ToLower(strings.TrimPrefix(s, "TRACKER_")), "__", ".")
+		if strings.Contains(v, ",") {
+			return key, strings.Split(v, ",")
+		}
 		if strings.Contains(v, " ") {
 			return key, strings.Split(v, " ")
 		}
