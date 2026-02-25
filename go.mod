@@ -14,7 +14,7 @@ require (
 	github.com/knadh/koanf/providers/file v1.2.1
 	github.com/knadh/koanf/v2 v2.3.2
 	github.com/lmittmann/w3 v0.20.6
-	github.com/nats-io/nats.go v1.48.0
+	github.com/nats-io/nats.go v1.49.0
 	github.com/puzpuzpuz/xsync/v3 v3.5.1
 	github.com/stretchr/testify v1.10.0
 	github.com/uptrace/bunrouter v1.0.23
