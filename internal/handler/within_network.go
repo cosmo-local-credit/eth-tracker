@@ -60,6 +60,8 @@ var busyContracts = map[string]bool{
 	"0xc45eCF20f3CD864B32D9794d6f76814aE8892e20": true,
 	// axlREGEN — Axelar-bridged REGEN token
 	"0x2E6C05f1f7D1f4Eb9A088bf12257f1647682b754": true,
+	// CELO ERC20 Wrapped
+	"0x471EcE3750Da237f93B8E339c536989b8978a438": true,
 }
 
 // checkWithinNetwork decides whether a token transfer log should be forwarded
