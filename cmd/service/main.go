@@ -97,6 +97,7 @@ func main() {
 		Registries: ko.MustStrings("bootstrap.ge_registry"),
 		Watchlist:  ko.Strings("bootstrap.watchlist"),
 		Blacklist:  ko.Strings("bootstrap.blacklist"),
+		Contracts:  ko.Strings("bootstrap.contracts"),
 		CacheType:  ko.MustString("core.cache_type"),
 		Logg:       lo,
 	}

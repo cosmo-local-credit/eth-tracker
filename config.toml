@@ -22,6 +22,7 @@ start_block = 0
 ge_registry = ["0x0f8E97ef2d6A42CF62549D4924FCBdcE83A1C6A5"]
 watchlist = [""]
 blacklist = [""]
+contracts = ["0x3e302C5965954D84Ab3dac664C6152b54D7daa00"]
 custodial_registration_address = ""
 
 # --- JetStream Clustering ---

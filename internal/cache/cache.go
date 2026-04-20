@@ -34,6 +34,7 @@ type (
 		Registries []string
 		Watchlist  []string
 		Blacklist  []string
+		Contracts  []string
 		Chain      chain.Chain
 		Logg       *slog.Logger
 	}
@@ -53,6 +54,7 @@ func New(o CacheOpts) (Cache, error) {
 		o.Registries,
 		o.Watchlist,
 		o.Blacklist,
+		o.Contracts,
 		o.Logg,
 	); err != nil {
 		return nil, err
