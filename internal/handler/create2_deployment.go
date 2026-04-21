@@ -39,7 +39,7 @@ func HandleCreate2DeploymentLog(hc *HandlerContainer) router.LogHandlerFunc {
 		}
 
 		return c(ctx, event.Event{
-			Index:           event.ContractCreationIndex,
+			Index:           lp.Log.Index,
 			Block:           lp.Log.BlockNumber,
 			ContractAddress: proxy.Hex(),
 			Success:         true,
