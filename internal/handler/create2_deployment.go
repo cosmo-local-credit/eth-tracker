@@ -25,13 +25,8 @@ func HandleCreate2DeploymentLog(hc *HandlerContainer) router.LogHandlerFunc {
 			return err
 		}
 
-		exists, err := hc.cache.Exists(ctx, deployer.Hex())
-		if err != nil {
-			return err
-		}
-		if !exists {
-			return nil
-		}
+		// Factory is trusted (pinned in contracts), so all its Deployed events are tracked
+		// unconditionally. No deployer cache check needed.
 
 		// TODO: We are tracking proxies for now. Review whether we need to do it in the future.
 		if err := hc.cache.Add(ctx, proxy.Hex()); err != nil {
