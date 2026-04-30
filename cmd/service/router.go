@@ -30,6 +30,7 @@ func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, cust
 	router.RegisterLogRoute(w3.H("0x8aa6856e3197c997992720c057a925dff13f6893a75f1a7228a2d4eafe117b84"), handler.HandleLimitSetLog(handlerContainer))
 	router.RegisterLogRoute(w3.H("0x06526a30af2ff868c2686df12e95844d8ae300416bbec5d5ccc2d2f4afdb17a0"), handler.HandleQuoterUpdatedLog())
 	router.RegisterLogRoute(w3.H("0xc95935a66d15e0da5e412aca0ad27ae891d20b2fb91cf3994b6a3bf2b8178082"), handler.HandleCreate2DeploymentLog(handlerContainer))
+	router.RegisterLogRoute(w3.H("0x5d611f318680d00598bb735d61bacf0c514c6b50e1e5ad30040a4df2b12791c7"), handler.HandleProxyUpgradeLog())
 
 	router.RegisterInputDataRoute("63e4bff4", handler.HandleFaucetGiveInputData())
 	router.RegisterInputDataRoute("de82efb4", handler.HandleFaucetGiveInputData())
@@ -53,6 +54,7 @@ func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, cust
 	router.RegisterInputDataRoute("095ea7b3", handler.HandleTokenApproveInputData(handlerContainer))
 	router.RegisterInputDataRoute("bdd55440", handler.HandleLimitSetInputData(handlerContainer))
 	router.RegisterInputDataRoute("f912c64b", handler.HandleQuoterUpdatedInputData())
+	router.RegisterInputDataRoute("99a88ec4", handler.HandleProxyUpgradeInputData())
 
 	return router
 }
