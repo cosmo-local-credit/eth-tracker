@@ -100,6 +100,17 @@ This event is emitted when an address is removed from any GE index.
 }
 ```
 
+#### `TRACKER.INDEX_ACTIVE`
+
+This event is emitted when an address is activated or deactivated on any GE index. Deactivation revokes the address from the index's `have()` authorization check while retaining it for enumeration and later reactivation.
+
+```json
+{
+    "address": String, // Account address
+    "active": Boolean  // Whether the address is now active
+}
+```
+
 #### `TRACKER.LIMIT_SET`
 
 This event is emitted when a transfer limit is set for a holder on a token contract.
