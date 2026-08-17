@@ -137,7 +137,7 @@ This event is emitted when a token is deposited into any swap pool. The amount v
 
 #### `TRACKER.POOL_SWAP`
 
-This event is emitted when a token is swapped/withdrawn from any swap pool. The amount values are in relation to the token's decimal precision.
+This event is emitted when a token is swapped/withdrawn from any swap pool. The amount values are in relation to the token's decimal precision. `fee` and every amount out are denominated in `tokenOut`, not `tokenIn`.
 
 ```json
 {
@@ -146,9 +146,27 @@ This event is emitted when a token is swapped/withdrawn from any swap pool. The 
     "tokenOut": String,  // Token out address
     "amountIn": String,  // Swap amount in
     "amountOut": String, // Swap amount out
-    "fee": String        // Fee amount
+    "fee": String        // Pool fee amount
 }
 ```
+
+From `chain.pool_settlement_block` onwards the payload is decoded from the pool's `SwapSettlement` event rather than `Swap`, which carries three extra fields. The fields above keep identical meanings, so consumers that ignore the extras need no change.
+
+```json
+{
+    "initiator": String,        // Initiator account address
+    "tokenIn": String,          // Token in address
+    "tokenOut": String,         // Token out address
+    "amountIn": String,         // Swap amount in
+    "amountOut": String,        // Balance increase observed at the recipient
+    "fee": String,              // Pool fee amount
+    "quotedAmountOut": String,  // Quote before any fee deduction
+    "nominalAmountOut": String, // Amount the pool transferred out
+    "protocolFee": String       // Protocol fee amount
+}
+```
+
+`nominalAmountOut` and `amountOut` differ only for fee-on-transfer output tokens. Below `chain.pool_settlement_block` the three extra fields are absent rather than zero, because the legacy event does not carry them.
 
 #### `TRACKER.QUOTER_PRICE_INDEX_UPDATED`
 

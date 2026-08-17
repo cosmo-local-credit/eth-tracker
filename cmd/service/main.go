@@ -127,7 +127,12 @@ func main() {
 	}
 	lo.Debug("loaded jetstream publisher")
 
-	router := bootstrapEventRouter(cacheInstance, jetStreamPub.Send, ko.String("bootstrap.custodial_registration_address"))
+	router := bootstrapEventRouter(
+		cacheInstance,
+		jetStreamPub.Send,
+		ko.String("bootstrap.custodial_registration_address"),
+		uint64(ko.Int64("chain.pool_settlement_block")),
+	)
 	lo.Debug("bootstrapped event router")
 
 	chainConfig := buildChainConfig(ko.MustInt64("chain.chainid"))

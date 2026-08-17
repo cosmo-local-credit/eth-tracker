@@ -7,7 +7,7 @@ import (
 	"github.com/lmittmann/w3"
 )
 
-func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, custodialAddr string) *router.Router {
+func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, custodialAddr string, poolSettlementBlock uint64) *router.Router {
 	handlerContainer := handler.New(cacheProvider)
 	router := router.New(pubCB)
 
@@ -18,7 +18,8 @@ func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, cust
 	router.RegisterLogRoute(w3.H("0x24a12366c02e13fe4a9e03d86a8952e85bb74a456c16e4a18b6d8295700b74bb"), handler.HandleIndexRemoveLog(handlerContainer))
 	router.RegisterLogRoute(w3.H("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"), handler.HandleOwnershipLog())
 	router.RegisterLogRoute(w3.H("0x5548c837ab068cf56a2c2479df0882a4922fd203edb7517321831d95078c5f62"), handler.HandlePoolDepositLog())
-	router.RegisterLogRoute(w3.H("0xd6d34547c69c5ee3d2667625c188acf1006abb93e0ee7cf03925c67cf7760413"), handler.HandlePoolSwapLog())
+	router.RegisterLogRoute(w3.H("0xd6d34547c69c5ee3d2667625c188acf1006abb93e0ee7cf03925c67cf7760413"), handler.HandlePoolSwapLog(poolSettlementBlock))
+	router.RegisterLogRoute(w3.H("0x6394474055d569feb90f5964ee258ee76713aa506f493bb07357e9aae1914016"), handler.HandlePoolSwapSettlementLog(poolSettlementBlock))
 	router.RegisterLogRoute(w3.H("0xdb9ce1a76955721ca61ac50cd1b87f9ab8620325c8619a62192c2dc7871d56b1"), handler.HandleQuoterPriceUpdateLog())
 	router.RegisterLogRoute(w3.H("0x6b7e2e653f93b645d4ed7292d6429f96637084363e477c8aaea1a43ed13c284e"), handler.HandleSealStateChangeLog())
 	router.RegisterLogRoute(w3.H("0xcc16f5dbb4873280815c1ee09dbd06736cffcc184412cf7a71a0fdb75d397ca5"), handler.HandleTokenBurnLog())
