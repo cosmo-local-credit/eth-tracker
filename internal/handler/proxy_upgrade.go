@@ -19,7 +19,7 @@ var (
 func HandleProxyUpgradeLog() router.LogHandlerFunc {
 	return func(ctx context.Context, lp router.LogPayload, c router.Callback) error {
 		var (
-			proxy         common.Address
+			proxy          common.Address
 			implementation common.Address
 		)
 
@@ -36,7 +36,7 @@ func HandleProxyUpgradeLog() router.LogHandlerFunc {
 			TxHash:          lp.Log.TxHash.Hex(),
 			TxType:          proxyUpgradeEventName,
 			Payload: map[string]any{
-				"proxy":         proxy.Hex(),
+				"proxy":          proxy.Hex(),
 				"implementation": implementation.Hex(),
 			},
 		}
@@ -48,7 +48,7 @@ func HandleProxyUpgradeLog() router.LogHandlerFunc {
 func HandleProxyUpgradeInputData() router.InputDataHandlerFunc {
 	return func(ctx context.Context, idp router.InputDataPayload, c router.Callback) error {
 		var (
-			proxy         common.Address
+			proxy          common.Address
 			implementation common.Address
 		)
 
@@ -64,7 +64,7 @@ func HandleProxyUpgradeInputData() router.InputDataHandlerFunc {
 			TxHash:          idp.TxHash,
 			TxType:          proxyUpgradeEventName,
 			Payload: map[string]any{
-				"proxy":         proxy.Hex(),
+				"proxy":          proxy.Hex(),
 				"implementation": implementation.Hex(),
 			},
 		}

@@ -7,7 +7,7 @@ import (
 	"github.com/lmittmann/w3"
 )
 
-func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, custodialAddr string) *router.Router {
+func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, custodialAddr string, poolSettlementBlock uint64) *router.Router {
 	handlerContainer := handler.New(cacheProvider)
 	router := router.New(pubCB)
 
@@ -16,9 +16,11 @@ func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, cust
 	router.RegisterLogRoute(w3.H("0x26162814817e23ec5035d6a2edc6c422da2da2119e27cfca6be65cc2dc55ca4c"), handler.HandleFaucetGiveLog())
 	router.RegisterLogRoute(w3.H("0xa226db3f664042183ee0281230bba26cbf7b5057e50aee7f25a175ff45ce4d7f"), handler.HandleIndexAddLog(handlerContainer))
 	router.RegisterLogRoute(w3.H("0x24a12366c02e13fe4a9e03d86a8952e85bb74a456c16e4a18b6d8295700b74bb"), handler.HandleIndexRemoveLog(handlerContainer))
+	router.RegisterLogRoute(w3.H("0x6c1683ebc97302eea2914ef699f100cff18033070fc74fe23d2b6375871f04ec"), handler.HandleIndexActiveLog())
 	router.RegisterLogRoute(w3.H("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"), handler.HandleOwnershipLog())
 	router.RegisterLogRoute(w3.H("0x5548c837ab068cf56a2c2479df0882a4922fd203edb7517321831d95078c5f62"), handler.HandlePoolDepositLog())
-	router.RegisterLogRoute(w3.H("0xd6d34547c69c5ee3d2667625c188acf1006abb93e0ee7cf03925c67cf7760413"), handler.HandlePoolSwapLog())
+	router.RegisterLogRoute(w3.H("0xd6d34547c69c5ee3d2667625c188acf1006abb93e0ee7cf03925c67cf7760413"), handler.HandlePoolSwapLog(poolSettlementBlock))
+	router.RegisterLogRoute(w3.H("0x6394474055d569feb90f5964ee258ee76713aa506f493bb07357e9aae1914016"), handler.HandlePoolSwapSettlementLog(poolSettlementBlock))
 	router.RegisterLogRoute(w3.H("0xdb9ce1a76955721ca61ac50cd1b87f9ab8620325c8619a62192c2dc7871d56b1"), handler.HandleQuoterPriceUpdateLog())
 	router.RegisterLogRoute(w3.H("0x6b7e2e653f93b645d4ed7292d6429f96637084363e477c8aaea1a43ed13c284e"), handler.HandleSealStateChangeLog())
 	router.RegisterLogRoute(w3.H("0xcc16f5dbb4873280815c1ee09dbd06736cffcc184412cf7a71a0fdb75d397ca5"), handler.HandleTokenBurnLog())
@@ -29,6 +31,8 @@ func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, cust
 	router.RegisterLogRoute(w3.H("0x5f7542858008eeb041631f30e6109ae94b83a58e9a58261dd2c42c508850f939"), handler.HandleTokenTransferFromLog(handlerContainer))
 	router.RegisterLogRoute(w3.H("0x8aa6856e3197c997992720c057a925dff13f6893a75f1a7228a2d4eafe117b84"), handler.HandleLimitSetLog(handlerContainer))
 	router.RegisterLogRoute(w3.H("0x06526a30af2ff868c2686df12e95844d8ae300416bbec5d5ccc2d2f4afdb17a0"), handler.HandleQuoterUpdatedLog())
+	router.RegisterLogRoute(w3.H("0x078c3b417dadf69374a59793b829c52001247130433427049317bde56607b1b7"), handler.HandleOracleUpdatedLog())
+	router.RegisterLogRoute(w3.H("0x9c8e7d83025bef8a04c664b2f753f64b8814bdb7e27291d7e50935f18cc3c712"), handler.HandleOracleRemovedLog())
 	router.RegisterLogRoute(w3.H("0xc95935a66d15e0da5e412aca0ad27ae891d20b2fb91cf3994b6a3bf2b8178082"), handler.HandleCreate2DeploymentLog(handlerContainer))
 	router.RegisterLogRoute(w3.H("0x5d611f318680d00598bb735d61bacf0c514c6b50e1e5ad30040a4df2b12791c7"), handler.HandleProxyUpgradeLog())
 
@@ -37,6 +41,8 @@ func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, cust
 	router.RegisterInputDataRoute("0a3b0a4f", handler.HandleIndexAddInputData())
 	router.RegisterInputDataRoute("4420e486", handler.HandleIndexAddInputData())
 	router.RegisterInputDataRoute("29092d0e", handler.HandleIndexRemoveInputData())
+	router.RegisterInputDataRoute("1c5a9d9c", handler.HandleIndexActiveInputData())
+	router.RegisterInputDataRoute("3ea053eb", handler.HandleIndexActiveInputData())
 	router.RegisterInputDataRoute("f2fde38b", handler.HandleOwnershipInputData())
 	router.RegisterInputDataRoute("47e7ef24", handler.HandlePoolDepositInputData())
 	router.RegisterInputDataRoute("d9caed12", handler.HandlePoolSwapInputData())
@@ -54,6 +60,10 @@ func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, cust
 	router.RegisterInputDataRoute("095ea7b3", handler.HandleTokenApproveInputData(handlerContainer))
 	router.RegisterInputDataRoute("bdd55440", handler.HandleLimitSetInputData(handlerContainer))
 	router.RegisterInputDataRoute("f912c64b", handler.HandleQuoterUpdatedInputData())
+	// setOracle is overloaded; both arities report the same mapping change.
+	router.RegisterInputDataRoute("5c38eb3a", handler.HandleOracleUpdatedInputData())
+	router.RegisterInputDataRoute("1ef23a12", handler.HandleOracleUpdatedInputData())
+	router.RegisterInputDataRoute("fdc85fc4", handler.HandleOracleRemovedInputData())
 	router.RegisterInputDataRoute("99a88ec4", handler.HandleProxyUpgradeInputData())
 
 	return router

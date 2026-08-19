@@ -17,6 +17,8 @@ ws_endpoint = "ws://localhost:8546"
 rpc_endpoint = "http://localhost:8545"
 chainid = 1337
 start_block = 0
+# First block at which SwapPool emits SwapSettlement. 0 keeps the legacy Swap event.
+pool_settlement_block = 0
 
 [bootstrap]
 ge_registry = ["0x0f8E97ef2d6A42CF62549D4924FCBdcE83A1C6A5"]
