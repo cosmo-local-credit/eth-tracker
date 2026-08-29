@@ -5,7 +5,7 @@ go 1.26
 replace github.com/ethereum/go-ethereum => github.com/celo-org/op-geth v1.101411.1-0.20260114114436-8b246d9c8c86
 
 require (
-	github.com/VictoriaMetrics/metrics v1.41.1
+	github.com/VictoriaMetrics/metrics v1.41.2
 	github.com/ethereum/go-ethereum v1.17.0
 	github.com/grassrootseconomics/ethutils v1.7.0
 	github.com/kamikazechaser/util v0.1.0
