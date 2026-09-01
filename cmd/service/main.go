@@ -94,10 +94,10 @@ func main() {
 	cacheOpts := cache.CacheOpts{
 		DB:         dbInstance,
 		Chain:      chainClient,
-		Registries: ko.MustStrings("bootstrap.ge_registry"),
-		Watchlist:  ko.Strings("bootstrap.watchlist"),
-		Blacklist:  ko.Strings("bootstrap.blacklist"),
-		Contracts:  ko.Strings("bootstrap.contracts"),
+		Registries: util.StringSlice(ko, "bootstrap.ge_registry"),
+		Watchlist:  util.StringSlice(ko, "bootstrap.watchlist"),
+		Blacklist:  util.StringSlice(ko, "bootstrap.blacklist"),
+		Contracts:  util.StringSlice(ko, "bootstrap.contracts"),
 		CacheType:  ko.MustString("core.cache_type"),
 		Logg:       lo,
 	}
@@ -112,7 +112,7 @@ func main() {
 	lo.Debug("loaded and boostrapped cache")
 
 	jetStreamPub, err := pub.NewJetStreamPub(pub.JetStreamOpts{
-		Endpoints:               ko.Strings("jetstream.endpoint"),
+		Endpoints:               util.StringSlice(ko, "jetstream.endpoint"),
 		PersistDuration:         time.Duration(ko.MustInt("jetstream.persist_duration_hrs")) * time.Hour,
 		DedupWindow:             time.Duration(ko.Int("jetstream.dedup_window_hrs")) * time.Hour,
 		StreamReplicas:          ko.Int("jetstream.stream_replicas"),
