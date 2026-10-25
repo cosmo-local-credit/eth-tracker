@@ -123,6 +123,18 @@ This event is emitted when a contract's ownership is transferred to another addr
 }
 ```
 
+#### `TRACKER.SAFE_OWNERS_CHANGED`
+
+Emitted by a Safe (1.3.0 / 1.4.1) that owns a catalog asset when its signer set or threshold changes. A Safe is watched once `OwnershipTransferred` names it as the new owner and it answers `VERSION()` and `getThreshold()`; an EOA owner is never watched. The event carries only the one change, so consumers should re-read `getOwners` / `getThreshold` at the event block rather than apply it as a delta.
+
+```json
+{
+    "change": String,    // "added" | "removed" | "threshold"
+    "owner": String,     // Added or removed signer (absent for "threshold")
+    "threshold": String  // New threshold, decimal (only for "threshold")
+}
+```
+
 #### `TRACKER.POOL_DEPOSIT`
 
 This event is emitted when a token is deposited into any swap pool. The amount values are in relation to the token's decimal precision.

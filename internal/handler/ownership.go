@@ -16,7 +16,7 @@ var (
 	ownershipToSig = w3.MustNewFunc("transferOwnership(address)", "bool")
 )
 
-func HandleOwnershipLog() router.LogHandlerFunc {
+func HandleOwnershipLog(hc *HandlerContainer) router.LogHandlerFunc {
 	return func(ctx context.Context, lp router.LogPayload, c router.Callback) error {
 		var (
 			previousOwner common.Address
@@ -39,6 +39,12 @@ func HandleOwnershipLog() router.LogHandlerFunc {
 				"previousOwner": previousOwner.Hex(),
 				"newOwner":      newOwner.Hex(),
 			},
+		}
+
+		// A new owner that is a Safe must be watched from here on, or its
+		// owner changes would never reach the subscriber.
+		if err := hc.watchSafeOwner(ctx, newOwner); err != nil {
+			return err
 		}
 
 		return c(ctx, ownershipEvent)

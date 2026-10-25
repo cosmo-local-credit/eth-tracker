@@ -7,8 +7,8 @@ import (
 	"github.com/lmittmann/w3"
 )
 
-func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, custodialAddr string) *router.Router {
-	handlerContainer := handler.New(cacheProvider)
+func bootstrapEventRouter(cacheProvider cache.Cache, safeProber handler.SafeProber, pubCB router.Callback, custodialAddr string) *router.Router {
+	handlerContainer := handler.New(cacheProvider, safeProber)
 	router := router.New(pubCB)
 
 	router.RegisterContractCreationHandler(handler.HandleContractCreation(handlerContainer))
@@ -16,7 +16,10 @@ func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, cust
 	router.RegisterLogRoute(w3.H("0x26162814817e23ec5035d6a2edc6c422da2da2119e27cfca6be65cc2dc55ca4c"), handler.HandleFaucetGiveLog())
 	router.RegisterLogRoute(w3.H("0xa226db3f664042183ee0281230bba26cbf7b5057e50aee7f25a175ff45ce4d7f"), handler.HandleIndexAddLog(handlerContainer))
 	router.RegisterLogRoute(w3.H("0x24a12366c02e13fe4a9e03d86a8952e85bb74a456c16e4a18b6d8295700b74bb"), handler.HandleIndexRemoveLog(handlerContainer))
-	router.RegisterLogRoute(w3.H("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"), handler.HandleOwnershipLog())
+	router.RegisterLogRoute(w3.H("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"), handler.HandleOwnershipLog(handlerContainer))
+	router.RegisterLogRoute(handler.SafeAddedOwnerEvent.Topic0, handler.HandleSafeAddedOwnerLog())
+	router.RegisterLogRoute(handler.SafeRemovedOwnerEvent.Topic0, handler.HandleSafeRemovedOwnerLog())
+	router.RegisterLogRoute(handler.SafeChangedThresholdEvent.Topic0, handler.HandleSafeChangedThresholdLog())
 	router.RegisterLogRoute(w3.H("0x5548c837ab068cf56a2c2479df0882a4922fd203edb7517321831d95078c5f62"), handler.HandlePoolDepositLog())
 	router.RegisterLogRoute(w3.H("0xd6d34547c69c5ee3d2667625c188acf1006abb93e0ee7cf03925c67cf7760413"), handler.HandlePoolSwapLog())
 	router.RegisterLogRoute(w3.H("0xdb9ce1a76955721ca61ac50cd1b87f9ab8620325c8619a62192c2dc7871d56b1"), handler.HandleQuoterPriceUpdateLog())
