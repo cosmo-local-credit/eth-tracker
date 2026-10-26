@@ -19,6 +19,7 @@ import (
 	"github.com/cosmo-local-credit/eth-tracker/internal/backfill"
 	"github.com/cosmo-local-credit/eth-tracker/internal/cache"
 	"github.com/cosmo-local-credit/eth-tracker/internal/chain"
+	"github.com/cosmo-local-credit/eth-tracker/internal/handler"
 	"github.com/cosmo-local-credit/eth-tracker/internal/pool"
 	"github.com/cosmo-local-credit/eth-tracker/internal/processor"
 	"github.com/cosmo-local-credit/eth-tracker/internal/pub"
@@ -129,6 +130,7 @@ func main() {
 
 	router := bootstrapEventRouter(
 		cacheInstance,
+		handler.NewSafeProber(chainClient),
 		jetStreamPub.Send,
 		ko.String("bootstrap.custodial_registration_address"),
 		uint64(ko.Int64("chain.pool_settlement_block")),

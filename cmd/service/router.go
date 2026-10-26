@@ -7,8 +7,8 @@ import (
 	"github.com/lmittmann/w3"
 )
 
-func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, custodialAddr string, poolSettlementBlock uint64) *router.Router {
-	handlerContainer := handler.New(cacheProvider)
+func bootstrapEventRouter(cacheProvider cache.Cache, safeProber handler.SafeProber, pubCB router.Callback, custodialAddr string, poolSettlementBlock uint64) *router.Router {
+	handlerContainer := handler.New(cacheProvider, safeProber)
 	router := router.New(pubCB)
 
 	router.RegisterContractCreationHandler(handler.HandleContractCreation(handlerContainer))
@@ -17,7 +17,10 @@ func bootstrapEventRouter(cacheProvider cache.Cache, pubCB router.Callback, cust
 	router.RegisterLogRoute(w3.H("0xa226db3f664042183ee0281230bba26cbf7b5057e50aee7f25a175ff45ce4d7f"), handler.HandleIndexAddLog(handlerContainer))
 	router.RegisterLogRoute(w3.H("0x24a12366c02e13fe4a9e03d86a8952e85bb74a456c16e4a18b6d8295700b74bb"), handler.HandleIndexRemoveLog(handlerContainer))
 	router.RegisterLogRoute(w3.H("0x6c1683ebc97302eea2914ef699f100cff18033070fc74fe23d2b6375871f04ec"), handler.HandleIndexActiveLog())
-	router.RegisterLogRoute(w3.H("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"), handler.HandleOwnershipLog())
+	router.RegisterLogRoute(w3.H("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0"), handler.HandleOwnershipLog(handlerContainer))
+	router.RegisterLogRoute(handler.SafeAddedOwnerEvent.Topic0, handler.HandleSafeAddedOwnerLog())
+	router.RegisterLogRoute(handler.SafeRemovedOwnerEvent.Topic0, handler.HandleSafeRemovedOwnerLog())
+	router.RegisterLogRoute(handler.SafeChangedThresholdEvent.Topic0, handler.HandleSafeChangedThresholdLog())
 	router.RegisterLogRoute(w3.H("0x5548c837ab068cf56a2c2479df0882a4922fd203edb7517321831d95078c5f62"), handler.HandlePoolDepositLog())
 	router.RegisterLogRoute(w3.H("0xd6d34547c69c5ee3d2667625c188acf1006abb93e0ee7cf03925c67cf7760413"), handler.HandlePoolSwapLog(poolSettlementBlock))
 	router.RegisterLogRoute(w3.H("0x6394474055d569feb90f5964ee258ee76713aa506f493bb07357e9aae1914016"), handler.HandlePoolSwapSettlementLog(poolSettlementBlock))

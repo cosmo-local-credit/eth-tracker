@@ -134,6 +134,18 @@ This event is emitted when a contract's ownership is transferred to another addr
 }
 ```
 
+#### `TRACKER.SAFE_OWNERS_CHANGED`
+
+Emitted by a Safe or compatible multisig when its signer set or threshold changes. A multisig is watched once `OwnershipTransferred` names it as the new owner and it returns a valid `getOwners()` set; `VERSION()` and `getThreshold()` are not required for detection. An EOA owner is never added through this path. clc-core also registers verified multisig owners in AccountIndex, whose ordinary `AddressAdded` events and enumeration provide tracking and restart recovery. The event carries only one change, so consumers re-read the whole signer set at its block. Custom contracts must emit these standard events for automatic updates; implementations with other events require inspection/reconciliation.
+
+```json
+{
+    "change": String,    // "added" | "removed" | "threshold"
+    "owner": String,     // Added or removed signer (absent for "threshold")
+    "threshold": String  // New threshold, decimal (only for "threshold")
+}
+```
+
 #### `TRACKER.POOL_DEPOSIT`
 
 This event is emitted when a token is deposited into any swap pool. The amount values are in relation to the token's decimal precision.
