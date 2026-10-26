@@ -20,16 +20,22 @@ func bootstrapCache(
 	registries []string,
 	watchlist []string,
 	blacklist []string,
+	contracts []string,
 	lo *slog.Logger,
 ) error {
 	normalizedWatchlist := normalizeAddresses(watchlist)
 	normalizedBlacklist := normalizeAddresses(blacklist)
+	normalizedContracts := normalizeAddresses(contracts)
 
 	if len(normalizedWatchlist) > 0 {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 
 		if err := reconcileWatchlistMode(ctx, cache, normalizedWatchlist, normalizedBlacklist); err != nil {
+			return err
+		}
+
+		if err := applyContracts(ctx, cache, normalizedContracts); err != nil {
 			return err
 		}
 
@@ -58,6 +64,10 @@ func bootstrapCache(
 		return err
 	}
 
+	if err := applyContracts(ctx, cache, normalizedContracts); err != nil {
+		return err
+	}
+
 	if warmSize > 0 {
 		lo.Info("warm cache loaded from persistent store, skipping chain enumeration",
 			"size", warmSize)
@@ -75,6 +85,15 @@ func bootstrapCache(
 	fullCtx, fullCancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer fullCancel()
 	return fullEnumerateAndCache(fullCtx, chain, cache, registries, lo)
+}
+
+func applyContracts(ctx context.Context, c Cache, contracts []string) error {
+	for _, address := range contracts {
+		if err := c.Add(ctx, address); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func applyWatchlistBlacklist(ctx context.Context, cache Cache, watchlist []string, blacklist []string) error {

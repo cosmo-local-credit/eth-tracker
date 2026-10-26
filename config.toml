@@ -17,11 +17,14 @@ ws_endpoint = "ws://localhost:8546"
 rpc_endpoint = "http://localhost:8545"
 chainid = 1337
 start_block = 0
+# First block at which SwapPool emits SwapSettlement. 0 keeps the legacy Swap event.
+pool_settlement_block = 0
 
 [bootstrap]
 ge_registry = ["0x0f8E97ef2d6A42CF62549D4924FCBdcE83A1C6A5"]
 watchlist = [""]
 blacklist = [""]
+contracts = ["0x3e302C5965954D84Ab3dac664C6152b54D7daa00"]
 custodial_registration_address = ""
 
 # --- JetStream Clustering ---
@@ -44,7 +47,7 @@ custodial_registration_address = ""
 #   stream_replicas = 1
 [jetstream]
 enable = true
-endpoint = "nats://127.0.0.1:4222"
+endpoints = ["nats://127.0.0.1:4222"]
 persist_duration_hrs = 48
 dedup_window_hrs     = 48  # must equal persist_duration_hrs so every retained event is
                            # also within the dedup window. A shorter dedup window creates

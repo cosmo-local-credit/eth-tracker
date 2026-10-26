@@ -1,13 +1,15 @@
 # eth-tracker
 
-![GitHub Tag](https://img.shields.io/github/v/tag/grassrootseconomics/eth-tracker)
+![GitHub Tag](https://img.shields.io/github/v/tag/cosmo-local-credit/eth-tracker)
 
 A fast and lightweight tracker designed to monitor EVM blockchains for live and
 historical transaction events, including reverted transactions. It filters these
 events and publishes them to NATS for further processing.
 
 It applies deduplication at the NATS level, making it safe to run in a
-distributed fashion.
+distributed fashion. For an initial bootstrap it is recommended to run on a larger server then switch over to a smaller one when caught up with the tip of the chain, applying compaction to the tracker_db file.
+
+On a warmed up archive RPC node (HTTPS) with the default config on a standard server (e.g. cpx62 on Hetzner), it can process in excess of [10k blocks/min](dev/screenshot.png).
 
 Note: To run it against an L2/EVM chain, you will need to manually add a replace
 directive in the `go.mod` file pointing to the EVM chain's `*geth` compatible
@@ -144,6 +146,13 @@ mv db/tracker_db_compacted db/tracker_db
 ```
 
 After restarting, RSS (From memory mapped bbolt file) will drop to reflect the compacted file size.
+
+## Historical changes
+
+This project was inspired by https://github.com/chaintool-py/eth-monitor, and evolved through these historical repos:
+
+* https://github.com/grassrootseconomics/cic-chain-events
+* https://github.com/grassrootseconomics/eth-tracker
 
 ## License
 

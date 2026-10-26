@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log/slog"
+	"math/big"
 	"net/http"
 	"os"
 	"os/signal"
@@ -25,9 +26,9 @@ import (
 	"github.com/cosmo-local-credit/eth-tracker/internal/stats"
 	"github.com/cosmo-local-credit/eth-tracker/internal/syncer"
 	"github.com/cosmo-local-credit/eth-tracker/internal/util"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/knadh/koanf/v2"
 
-	// Only active when the debug server is started (TRACKER_PROFILE=1).
 	_ "net/http/pprof"
 )
 
@@ -97,6 +98,7 @@ func main() {
 		Registries: ko.MustStrings("bootstrap.ge_registry"),
 		Watchlist:  ko.Strings("bootstrap.watchlist"),
 		Blacklist:  ko.Strings("bootstrap.blacklist"),
+		Contracts:  ko.Strings("bootstrap.contracts"),
 		CacheType:  ko.MustString("core.cache_type"),
 		Logg:       lo,
 	}
@@ -111,7 +113,7 @@ func main() {
 	lo.Debug("loaded and boostrapped cache")
 
 	jetStreamPub, err := pub.NewJetStreamPub(pub.JetStreamOpts{
-		Endpoint:                ko.MustString("jetstream.endpoint"),
+		Endpoints:               ko.Strings("jetstream.endpoint"),
 		PersistDuration:         time.Duration(ko.MustInt("jetstream.persist_duration_hrs")) * time.Hour,
 		DedupWindow:             time.Duration(ko.Int("jetstream.dedup_window_hrs")) * time.Hour,
 		StreamReplicas:          ko.Int("jetstream.stream_replicas"),
@@ -126,15 +128,24 @@ func main() {
 	}
 	lo.Debug("loaded jetstream publisher")
 
-	router := bootstrapEventRouter(cacheInstance, handler.NewSafeProber(chainClient), jetStreamPub.Send, ko.String("bootstrap.custodial_registration_address"))
+	router := bootstrapEventRouter(
+		cacheInstance,
+		handler.NewSafeProber(chainClient),
+		jetStreamPub.Send,
+		ko.String("bootstrap.custodial_registration_address"),
+		uint64(ko.Int64("chain.pool_settlement_block")),
+	)
 	lo.Debug("bootstrapped event router")
 
+	chainConfig := buildChainConfig(ko.MustInt64("chain.chainid"))
+
 	blockProcessor := processor.NewProcessor(processor.ProcessorOpts{
-		Cache:  cacheInstance,
-		Chain:  chainClient,
-		DB:     dbInstance,
-		Router: router,
-		Logg:   lo,
+		Cache:       cacheInstance,
+		Chain:       chainClient,
+		DB:          dbInstance,
+		Router:      router,
+		Logg:        lo,
+		ChainConfig: chainConfig,
 	})
 	lo.Debug("bootstrapped processor")
 
@@ -268,4 +279,19 @@ func main() {
 
 func notifyShutdown() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
+}
+
+func buildChainConfig(chainID int64) *params.ChainConfig {
+	return &params.ChainConfig{
+		ChainID:        big.NewInt(chainID),
+		HomesteadBlock: big.NewInt(0),
+		EIP155Block:    big.NewInt(0),
+		BerlinBlock:    big.NewInt(0),
+		LondonBlock:    big.NewInt(0),
+		Cel2Time:       uint64Ptr(1 << 62),
+	}
+}
+
+func uint64Ptr(v uint64) *uint64 {
+	return &v
 }

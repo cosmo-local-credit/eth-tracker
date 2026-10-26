@@ -13,8 +13,12 @@ import (
 const quoterPriceEventName = "QUOTER_PRICE_INDEX_UPDATED"
 
 var (
-	quoterPriceEvent = w3.MustNewEvent("PriceIndexUpdated(address _tokenAddress, uint256 _exchangeRate)")
-	quoterPriceToSig = w3.MustNewFunc("setPriceIndexValue(address, uint256)", "uint256")
+	// clc-protocol's RelativeQuoter indexes the token; the legacy price index
+	// quoter does not. Indexing leaves topic0 unchanged, so both reach this
+	// handler and the layout is chosen from the log's topic count.
+	quoterPriceEvent       = w3.MustNewEvent("PriceIndexUpdated(address indexed _tokenAddress, uint256 _exchangeRate)")
+	legacyQuoterPriceEvent = w3.MustNewEvent("PriceIndexUpdated(address _tokenAddress, uint256 _exchangeRate)")
+	quoterPriceToSig       = w3.MustNewFunc("setPriceIndexValue(address, uint256)", "uint256")
 )
 
 func HandleQuoterPriceUpdateLog() router.LogHandlerFunc {
@@ -24,7 +28,11 @@ func HandleQuoterPriceUpdateLog() router.LogHandlerFunc {
 			exchangeRate big.Int
 		)
 
-		if err := quoterPriceEvent.DecodeArgs(lp.Log, &token, &exchangeRate); err != nil {
+		priceEvent := quoterPriceEvent
+		if len(lp.Log.Topics) == 1 {
+			priceEvent = legacyQuoterPriceEvent
+		}
+		if err := priceEvent.DecodeArgs(lp.Log, &token, &exchangeRate); err != nil {
 			return err
 		}
 
