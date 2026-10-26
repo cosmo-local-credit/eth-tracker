@@ -23,11 +23,14 @@ const safeOwnersChangedEventName = "SAFE_OWNERS_CHANGED"
 var eip7702Prefix = []byte{0xef, 0x01, 0x00}
 
 var (
-	// Safe 1.3.0 and 1.4.1 emit these from the Safe proxy. The owner is not
-	// indexed.
-	SafeAddedOwnerEvent       = w3.MustNewEvent("AddedOwner(address owner)")
-	SafeRemovedOwnerEvent     = w3.MustNewEvent("RemovedOwner(address owner)")
-	SafeChangedThresholdEvent = w3.MustNewEvent("ChangedThreshold(uint256 threshold)")
+	// Safe 1.3.0 emits the owner as data; 1.4.x and 1.5.x index it. Indexing
+	// leaves topic0 unchanged, so one route serves both and the layout is
+	// chosen from the log's topic count.
+	SafeAddedOwnerEvent        = w3.MustNewEvent("AddedOwner(address owner)")
+	SafeRemovedOwnerEvent      = w3.MustNewEvent("RemovedOwner(address owner)")
+	safeAddedOwnerIndexedEvent = w3.MustNewEvent("AddedOwner(address indexed owner)")
+	safeRemovedOwnerIndexed    = w3.MustNewEvent("RemovedOwner(address indexed owner)")
+	SafeChangedThresholdEvent  = w3.MustNewEvent("ChangedThreshold(uint256 threshold)")
 
 	safeGetOwnersFunc = w3.MustNewFunc("getOwners()", "address[]")
 )
@@ -111,23 +114,32 @@ func safeOwnersChanged(lp router.LogPayload, payload map[string]any) event.Event
 	}
 }
 
+// safeOwnerChangePayload decodes the changed owner from either layout. A log
+// that matches neither (a custom contract reusing the signature) still reports
+// the change without an owner: consumers re-read the whole signer set at the
+// event's block, and failing here would fail the block on every retry.
+func safeOwnerChangePayload(lp router.LogPayload, change string, data, indexed *w3.Event) map[string]any {
+	payload := map[string]any{"change": change}
+	layout := data
+	if len(lp.Log.Topics) == 2 {
+		layout = indexed
+	}
+	var owner common.Address
+	if err := layout.DecodeArgs(lp.Log, &owner); err == nil {
+		payload["owner"] = owner.Hex()
+	}
+	return payload
+}
+
 func HandleSafeAddedOwnerLog() router.LogHandlerFunc {
 	return func(ctx context.Context, lp router.LogPayload, c router.Callback) error {
-		var owner common.Address
-		if err := SafeAddedOwnerEvent.DecodeArgs(lp.Log, &owner); err != nil {
-			return err
-		}
-		return c(ctx, safeOwnersChanged(lp, map[string]any{"change": "added", "owner": owner.Hex()}))
+		return c(ctx, safeOwnersChanged(lp, safeOwnerChangePayload(lp, "added", SafeAddedOwnerEvent, safeAddedOwnerIndexedEvent)))
 	}
 }
 
 func HandleSafeRemovedOwnerLog() router.LogHandlerFunc {
 	return func(ctx context.Context, lp router.LogPayload, c router.Callback) error {
-		var owner common.Address
-		if err := SafeRemovedOwnerEvent.DecodeArgs(lp.Log, &owner); err != nil {
-			return err
-		}
-		return c(ctx, safeOwnersChanged(lp, map[string]any{"change": "removed", "owner": owner.Hex()}))
+		return c(ctx, safeOwnersChanged(lp, safeOwnerChangePayload(lp, "removed", SafeRemovedOwnerEvent, safeRemovedOwnerIndexed)))
 	}
 }
 

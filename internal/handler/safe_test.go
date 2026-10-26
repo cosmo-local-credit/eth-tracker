@@ -66,6 +66,11 @@ func TestSafeOwnerEventsEmitOneTypeWithTheChange(t *testing.T) {
 			map[string]any{"change": "removed", "owner": owner.Hex()}},
 		"threshold": {HandleSafeChangedThresholdLog(), safeLog(SafeChangedThresholdEvent.Topic0, word(big.NewInt(3).Bytes())),
 			map[string]any{"change": "threshold", "threshold": "3"}},
+		// Safe 1.4.x and 1.5.x index the owner: same topic0, owner in topic 1.
+		"added (indexed)": {HandleSafeAddedOwnerLog(), indexedSafeLog(SafeAddedOwnerEvent.Topic0, owner),
+			map[string]any{"change": "added", "owner": owner.Hex()}},
+		"removed (indexed)": {HandleSafeRemovedOwnerLog(), indexedSafeLog(SafeRemovedOwnerEvent.Topic0, owner),
+			map[string]any{"change": "removed", "owner": owner.Hex()}},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -85,6 +90,35 @@ func TestSafeOwnerEventsEmitOneTypeWithTheChange(t *testing.T) {
 				if e.Payload[k] != v {
 					t.Errorf("payload[%s] = %v, want %v", k, e.Payload[k], v)
 				}
+			}
+		})
+	}
+}
+
+func indexedSafeLog(topic common.Hash, owner common.Address) router.LogPayload {
+	lp := safeLog(topic, nil)
+	lp.Log.Topics = append(lp.Log.Topics, common.BytesToHash(owner.Bytes()))
+	return lp
+}
+
+// A log reusing the signature with another layout must not fail the block: the
+// change is still reported, without an owner, and consumers re-read the set.
+func TestSafeOwnerEventsReportAnUndecodableChangeWithoutFailing(t *testing.T) {
+	for name, handler := range map[string]router.LogHandlerFunc{
+		"added":   HandleSafeAddedOwnerLog(),
+		"removed": HandleSafeRemovedOwnerLog(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			var got []event.Event
+			lp := safeLog(SafeAddedOwnerEvent.Topic0, []byte{0x01})
+			if err := handler(context.Background(), lp, collectEvents(&got)); err != nil {
+				t.Fatalf("an undecodable owner event failed the block: %v", err)
+			}
+			if len(got) != 1 || got[0].TxType != safeOwnersChangedEventName || got[0].Payload["change"] != name {
+				t.Fatalf("unexpected events %+v", got)
+			}
+			if _, ok := got[0].Payload["owner"]; ok {
+				t.Fatalf("owner = %v, want it omitted", got[0].Payload["owner"])
 			}
 		})
 	}
