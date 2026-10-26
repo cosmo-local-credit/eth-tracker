@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"github.com/cosmo-local-credit/eth-tracker/internal/chain"
 	"github.com/cosmo-local-credit/eth-tracker/pkg/event"
 	"github.com/cosmo-local-credit/eth-tracker/pkg/router"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/lmittmann/w3"
 	"github.com/lmittmann/w3/module/eth"
 )
@@ -27,13 +29,11 @@ var (
 	SafeRemovedOwnerEvent     = w3.MustNewEvent("RemovedOwner(address owner)")
 	SafeChangedThresholdEvent = w3.MustNewEvent("ChangedThreshold(uint256 threshold)")
 
-	safeVersionFunc      = w3.MustNewFunc("VERSION()", "string")
-	safeGetThresholdFunc = w3.MustNewFunc("getThreshold()", "uint256")
+	safeGetOwnersFunc = w3.MustNewFunc("getOwners()", "address[]")
 )
 
-// SafeProber reports whether address is a Safe: a contract answering VERSION()
-// and getThreshold(). Transport errors are returned so the block is retried; a
-// contract that does not answer is simply not a Safe.
+// SafeProber detects a Safe-compatible owner getter. Custom multisigs need no
+// VERSION or threshold getter to be watched for the standard owner events.
 type SafeProber func(ctx context.Context, address common.Address) (bool, error)
 
 // NewSafeProber probes over the tracker's own RPC connection.
@@ -46,22 +46,36 @@ func NewSafeProber(c chain.Chain) SafeProber {
 		if len(code) == 0 || bytes.HasPrefix(code, eip7702Prefix) {
 			return false, nil
 		}
-		var (
-			version   string
-			threshold big.Int
-		)
+		var owners []common.Address
 		err := c.Provider().Client.CallCtx(ctx,
-			eth.CallFunc(address, safeVersionFunc).Returns(&version),
-			eth.CallFunc(address, safeGetThresholdFunc).Returns(&threshold),
+			eth.CallFunc(address, safeGetOwnersFunc).Returns(&owners),
 		)
 		var callErrs w3.CallErrors
 		if errors.As(err, &callErrs) {
+			for _, callErr := range callErrs {
+				var rpcErr rpc.Error
+				if errors.As(callErr, &rpcErr) && rpcErr.ErrorCode() != 3 &&
+					!strings.Contains(strings.ToLower(callErr.Error()), "revert") &&
+					rpcErr.ErrorCode() != -32601 {
+					return false, fmt.Errorf("probe %s: %w", address.Hex(), callErr)
+				}
+			}
 			return false, nil
 		}
 		if err != nil {
 			return false, fmt.Errorf("probe %s: %w", address.Hex(), err)
 		}
-		return threshold.Sign() > 0, nil
+		if len(owners) == 0 {
+			return false, nil
+		}
+		seen := make(map[common.Address]bool, len(owners))
+		for _, owner := range owners {
+			if owner == (common.Address{}) || seen[owner] {
+				return false, nil
+			}
+			seen[owner] = true
+		}
+		return true, nil
 	}
 }
 

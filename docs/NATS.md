@@ -125,7 +125,7 @@ This event is emitted when a contract's ownership is transferred to another addr
 
 #### `TRACKER.SAFE_OWNERS_CHANGED`
 
-Emitted by a Safe (1.3.0 / 1.4.1) that owns a catalog asset when its signer set or threshold changes. A Safe is watched once `OwnershipTransferred` names it as the new owner and it answers `VERSION()` and `getThreshold()`; an EOA owner is never watched. The event carries only the one change, so consumers should re-read `getOwners` / `getThreshold` at the event block rather than apply it as a delta.
+Emitted by a Safe or compatible multisig when its signer set or threshold changes. A multisig is watched once `OwnershipTransferred` names it as the new owner and it returns a valid `getOwners()` set; `VERSION()` and `getThreshold()` are not required for detection. An EOA owner is never added through this path. clc-core also registers verified multisig owners in AccountIndex, whose ordinary `AddressAdded` events and enumeration provide tracking and restart recovery. The event carries only one change, so consumers re-read the whole signer set at its block. Custom contracts must emit these standard events for automatic updates; implementations with other events require inspection/reconciliation.
 
 ```json
 {
