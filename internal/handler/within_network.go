@@ -3,7 +3,7 @@ package handler
 import "context"
 
 // busyContracts is the set of token contracts that emit a Transfer event on
-// virtually every block on Celo. There are two reasons a token lands here:
+// virtually every block on their respective chains. There are two reasons a token lands here:
 //
 //  1. Celo gas-abstraction: users can pay transaction fees with ERC-20 tokens
 //     instead of CELO. Every such transaction produces a Transfer from the
@@ -62,6 +62,8 @@ var busyContracts = map[string]bool{
 	"0x2E6C05f1f7D1f4Eb9A088bf12257f1647682b754": true,
 	// CELO ERC20 Wrapped
 	"0x471EcE3750Da237f93B8E339c536989b8978a438": true,
+	// WXDAI — wrapped xDai on Gnosis Chain
+	"0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d": true,
 }
 
 // checkWithinNetwork decides whether a token transfer log should be forwarded
