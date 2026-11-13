@@ -80,6 +80,41 @@ This event is emitted when gas is requested from the faucet.
 }
 ```
 
+#### `TRACKER.FEE_DEFAULT_UPDATED`
+
+This event is emitted when a pool's `FeePolicy` changes its default fee, which applies to every swap direction without a pair fee. Fees are in parts per million (`1000000` is 100%). `oldFee` is `"0"` for reverted transactions.
+
+```json
+{
+    "oldFee": String, // Previous default fee
+    "newFee": String  // New default fee
+}
+```
+
+#### `TRACKER.FEE_PAIR_UPDATED`
+
+This event is emitted when a `FeePolicy` sets the fee for one swap direction. A `newFee` of `"0"` stores no override, so the direction falls back to the default fee; no `FEE_PAIR_REMOVED` follows. `oldFee` is `"0"` for reverted transactions.
+
+```json
+{
+    "tokenIn": String,  // Token in address
+    "tokenOut": String, // Token out address
+    "oldFee": String,   // Previous fee for the direction, the default fee if it had none
+    "newFee": String    // New fee for the direction
+}
+```
+
+#### `TRACKER.FEE_PAIR_REMOVED`
+
+This event is emitted when a `FeePolicy` removes the fee for one swap direction, which then falls back to the default fee. It is only emitted when the direction had a fee.
+
+```json
+{
+    "tokenIn": String, // Token in address
+    "tokenOut": String // Token out address
+}
+```
+
 #### `TRACKER.INDEX_ADD`
 
 This event is emitted when an address is added to any GE index.
@@ -190,6 +225,40 @@ From `chain.pool_settlement_block` onwards the payload is decoded from the pool'
 ```
 
 `nominalAmountOut` and `amountOut` differ only for fee-on-transfer output tokens. Below `chain.pool_settlement_block` the three extra fields are absent rather than zero, because the legacy event does not carry them.
+
+#### `TRACKER.PROTOCOL_FEE_UPDATED`
+
+This event is emitted when a `ProtocolFeeController` changes the protocol fee, which pools using the controller take on every swap while it is active. Fees are in parts per million. `oldFee` is `"0"` for reverted transactions.
+
+```json
+{
+    "oldFee": String, // Previous protocol fee
+    "newFee": String  // New protocol fee
+}
+```
+
+#### `TRACKER.PROTOCOL_FEE_RECIPIENT_UPDATED`
+
+This event is emitted when a `ProtocolFeeController` changes the address that receives the protocol fee. `oldRecipient` is the zero address for reverted transactions.
+
+```json
+{
+    "oldRecipient": String, // Previous recipient address
+    "newRecipient": String  // New recipient address
+}
+```
+
+#### `TRACKER.PROTOCOL_FEE_ACTIVE_UPDATED`
+
+This event is emitted when a `ProtocolFeeController` is switched on or off. While it is off the controller reports a protocol fee of zero; the configured fee is kept and applies again once it is switched back on.
+
+```json
+{
+    "active": Boolean // Whether the protocol fee is charged
+}
+```
+
+Outside watchlist mode, the fee policy and protocol fee controller of every pool in the pool index are tracked from the cache bootstrap, alongside the pool's quoter and token registry. A fee policy deployed later through the tracked `ERC1967Factory` is tracked from its `Deployed` event. Its initializer's `DefaultFeeUpdated` log comes earlier in the same transaction, so no `FEE_DEFAULT_UPDATED` is published for the initial fee.
 
 #### `TRACKER.QUOTER_PRICE_INDEX_UPDATED`
 
