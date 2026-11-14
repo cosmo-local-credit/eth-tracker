@@ -38,6 +38,12 @@ func bootstrapEventRouter(cacheProvider cache.Cache, safeProber handler.SafeProb
 	router.RegisterLogRoute(w3.H("0x9c8e7d83025bef8a04c664b2f753f64b8814bdb7e27291d7e50935f18cc3c712"), handler.HandleOracleRemovedLog())
 	router.RegisterLogRoute(w3.H("0xc95935a66d15e0da5e412aca0ad27ae891d20b2fb91cf3994b6a3bf2b8178082"), handler.HandleCreate2DeploymentLog(handlerContainer))
 	router.RegisterLogRoute(w3.H("0x5d611f318680d00598bb735d61bacf0c514c6b50e1e5ad30040a4df2b12791c7"), handler.HandleProxyUpgradeLog())
+	router.RegisterLogRoute(w3.H("0xac1f58cd233fc224bd53b979e04547b08f9e5da37a3fa94f2afa216dfba59230"), handler.HandleFeeDefaultUpdatedLog())
+	router.RegisterLogRoute(w3.H("0xd2cf20f53670d6c2f2775b7a3607bee1974d8d7e19bb232ef4d72dd0c4e362b9"), handler.HandleFeePairUpdatedLog())
+	router.RegisterLogRoute(w3.H("0x932e84dab6bb358e2a5029f4ce98b18582a36fe4de93230654cecd67b838e59f"), handler.HandleFeePairRemovedLog())
+	router.RegisterLogRoute(w3.H("0xb404cac19fb1cbeff98d325795b08886e3cd8fe8cb1a2f193aac66f13fb239c3"), handler.HandleProtocolFeeUpdatedLog())
+	router.RegisterLogRoute(w3.H("0xd3890fc76afcfc31cba1dcf2c27b50e2541e4d75039c981855b5b5e03682aea0"), handler.HandleProtocolFeeRecipientUpdatedLog())
+	router.RegisterLogRoute(w3.H("0xba9632d262ad80f6a893ede784b000f5fe411a5e504ed97aa4ed15e1a78a5632"), handler.HandleProtocolFeeActiveUpdatedLog())
 
 	router.RegisterInputDataRoute("63e4bff4", handler.HandleFaucetGiveInputData())
 	router.RegisterInputDataRoute("de82efb4", handler.HandleFaucetGiveInputData())
@@ -68,6 +74,12 @@ func bootstrapEventRouter(cacheProvider cache.Cache, safeProber handler.SafeProb
 	router.RegisterInputDataRoute("1ef23a12", handler.HandleOracleUpdatedInputData())
 	router.RegisterInputDataRoute("fdc85fc4", handler.HandleOracleRemovedInputData())
 	router.RegisterInputDataRoute("99a88ec4", handler.HandleProxyUpgradeInputData())
+	router.RegisterInputDataRoute("c93a6c84", handler.HandleFeeDefaultUpdatedInputData())
+	router.RegisterInputDataRoute("d97d7a5d", handler.HandleFeePairUpdatedInputData())
+	router.RegisterInputDataRoute("778e4662", handler.HandleFeePairRemovedInputData())
+	router.RegisterInputDataRoute("787dce3d", handler.HandleProtocolFeeUpdatedInputData())
+	router.RegisterInputDataRoute("e521cb92", handler.HandleProtocolFeeRecipientUpdatedInputData())
+	router.RegisterInputDataRoute("acec338a", handler.HandleProtocolFeeActiveUpdatedInputData())
 
 	return router
 }

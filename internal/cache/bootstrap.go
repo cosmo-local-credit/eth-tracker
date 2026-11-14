@@ -2,6 +2,8 @@ package cache
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"strings"
@@ -9,10 +11,62 @@ import (
 
 	"github.com/cosmo-local-credit/eth-tracker/internal/chain"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/grassrootseconomics/ethutils"
 	"github.com/lmittmann/w3"
 	"github.com/lmittmann/w3/module/eth"
 )
+
+var (
+	feePolicyGetter             = w3.MustNewFunc("feePolicy()", "address")
+	protocolFeeControllerGetter = w3.MustNewFunc("protocolFeeController()", "address")
+)
+
+// poolFeeContracts returns the fee policy and protocol fee controller a pool
+// prices its swaps with, so their fee events reach the router alongside the
+// pool's quoter and token registry. A pool that predates a getter reverts on
+// it and contributes no address for it; any other failure is returned, as it
+// is for the pool's other getters.
+func poolFeeContracts(ctx context.Context, chain chain.Chain, pool common.Address) ([]common.Address, error) {
+	var feePolicy, protocolFeeController common.Address
+	err := chain.Provider().Client.CallCtx(
+		ctx,
+		eth.CallFunc(pool, feePolicyGetter).Returns(&feePolicy),
+		eth.CallFunc(pool, protocolFeeControllerGetter).Returns(&protocolFeeController),
+	)
+	var callErrs w3.CallErrors
+	if errors.As(err, &callErrs) {
+		for _, callErr := range callErrs {
+			if callErr != nil && !isRevert(callErr) {
+				return nil, fmt.Errorf("read fee contracts of pool %s: %w", pool.Hex(), callErr)
+			}
+		}
+	} else if err != nil {
+		return nil, err
+	}
+
+	feeContracts := make([]common.Address, 0, 2)
+	for _, address := range []common.Address{feePolicy, protocolFeeController} {
+		if address != ethutils.ZeroAddress {
+			feeContracts = append(feeContracts, address)
+		}
+	}
+	return feeContracts, nil
+}
+
+// isRevert reports whether a call failed in the EVM rather than on the way to
+// it. Nodes differ: geth answers code 3 when the revert carries data and
+// -32000 "execution reverted" when it does not.
+func isRevert(err error) bool {
+	if errors.Is(err, w3.ErrEvmRevert) {
+		return true
+	}
+	var rpcErr rpc.Error
+	if errors.As(err, &rpcErr) && rpcErr.ErrorCode() == 3 {
+		return true
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "revert")
+}
 
 func bootstrapCache(
 	chain chain.Chain,
@@ -346,6 +400,16 @@ func fullEnumerateAndCache(ctx context.Context, chain chain.Chain, cache Cache, 
 							}
 							lo.Debug("cached pool index quoter", "pool", poolIndex.Hex(), "address", priceQuoter.Hex())
 						}
+						feeContracts, err := poolFeeContracts(ctx, chain, address)
+						if err != nil {
+							return err
+						}
+						for _, feeContract := range feeContracts {
+							if err := cache.Add(ctx, feeContract.Hex()); err != nil {
+								return err
+							}
+							lo.Debug("cached pool fee contract", "pool", address.Hex(), "address", feeContract.Hex())
+						}
 						if poolTokenIndex != ethutils.ZeroAddress {
 							if err := cache.Add(ctx, poolTokenIndex.Hex()); err != nil {
 								return err
@@ -527,6 +591,19 @@ func syncCacheFromChain(ctx context.Context, chain chain.Chain, cache *persisten
 								}
 								added++
 							}
+						}
+						feeContracts, err := poolFeeContracts(ctx, chain, address)
+						if err != nil {
+							return err
+						}
+						for _, feeContract := range feeContracts {
+							if _, alreadyHave := cache.xmap.Load(feeContract.Hex()); alreadyHave {
+								continue
+							}
+							if err := cache.Add(ctx, feeContract.Hex()); err != nil {
+								return err
+							}
+							added++
 						}
 						if poolTokenIndex != ethutils.ZeroAddress {
 							if err := cache.Add(ctx, poolTokenIndex.Hex()); err != nil {
