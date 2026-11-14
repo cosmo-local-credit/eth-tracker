@@ -17,7 +17,7 @@ func TestWrappedXDaiWithinNetwork(t *testing.T) {
 	if err := c.Add(ctx, known); err != nil {
 		t.Fatal(err)
 	}
-	hc := New(c)
+	hc := New(c, func(context.Context, common.Address) (bool, error) { return false, nil })
 
 	for _, tt := range []struct {
 		name     string
